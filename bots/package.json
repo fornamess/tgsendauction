@@ -1,0 +1,26 @@
+{
+  "name": "tgsendauction-bots",
+  "version": "1.0.0",
+  "description": "Боты для тестирования системы аукциона",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "tsx src/index.ts",
+    "stress": "tsx src/stress-test.ts"
+  },
+  "keywords": [
+    "auction",
+    "testing",
+    "bots"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

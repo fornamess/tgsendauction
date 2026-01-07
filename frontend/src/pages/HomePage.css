@@ -1,0 +1,40 @@
+.home-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.auction-info {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.auction-info h2 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.prize-info {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.loading,
+.no-auction {
+  text-align: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.no-auction h2 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.no-auction p {
+  color: #666;
+}

@@ -1,0 +1,200 @@
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.profile-header {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-header h1 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.user-balance {
+  display: flex;
+  gap: 2rem;
+}
+
+.balance-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.balance-item .label {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.balance-item .value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.balance-item .value.robux {
+  color: #f39c12;
+}
+
+.deposit-section,
+.bets-section,
+.transactions-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.deposit-section h2,
+.bets-section h2,
+.transactions-section h2 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.deposit-section form {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.deposit-section input {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  flex: 1;
+  max-width: 200px;
+}
+
+.deposit-section button {
+  padding: 0.75rem 1.5rem;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.deposit-section button:hover:not(:disabled) {
+  background: #1565c0;
+}
+
+.deposit-section button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.empty {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.bets-list,
+.transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bet-item {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bet-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.bet-round {
+  font-weight: 500;
+  color: #555;
+}
+
+.bet-amount {
+  font-weight: bold;
+  color: #f39c12;
+}
+
+.bet-date {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.transaction-item {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.transaction-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.transaction-type {
+  font-weight: 500;
+  color: #555;
+}
+
+.transaction-amount {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.transaction-amount.bet {
+  color: #e74c3c;
+}
+
+.transaction-amount.refund,
+.transaction-amount.deposit {
+  color: #27ae60;
+}
+
+.transaction-amount.prize {
+  color: #f39c12;
+}
+
+.transaction-description {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.transaction-date {
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: #e74c3c;
+}
