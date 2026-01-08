@@ -56,7 +56,7 @@ async function processRounds() {
   // Попытаться создать новый раунд, если нет активного
   const currentAuction = await AuctionService.getCurrentAuction();
   const currentRound = await RoundService.getCurrentRound();
-  
+
   if (currentAuction && !currentRound) {
     try {
       const newRound = await RoundService.createNextRound();

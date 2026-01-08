@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: tgsendauction-mongodb-prod
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb_data_prod:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: auction_db
+    networks:
+      - auction-network
+    command: mongod --auth
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: tgsendauction-backend-prod
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongodb:27017/auction_db
+      PORT: 3000
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://web.telegram.org,https://t.me}
+    depends_on:
+      - mongodb
+    networks:
+      - auction-network
+    env_file:
+      - .env.prod
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: tgsendauction-frontend-prod
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-https://api.your-domain.com}
+    depends_on:
+      - backend
+    networks:
+      - auction-network
+
+volumes:
+  mongodb_data_prod:
+
+networks:
+  auction-network:
+    driver: bridge

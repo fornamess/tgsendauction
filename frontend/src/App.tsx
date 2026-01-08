@@ -1,12 +1,13 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import './App.css';
+import AdminPage from './pages/AdminPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
-import AdminPage from './pages/AdminPage';
-import './App.css';
 
 function App() {
   const [userId, setUserId] = useState<string | null>(null);
+  const [showUserSwitcher, setShowUserSwitcher] = useState(false);
 
   useEffect(() => {
     // Получить или создать userId
@@ -17,6 +18,14 @@ function App() {
     }
     setUserId(storedUserId);
   }, []);
+
+  const handleNewUser = () => {
+    const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('userId', newUserId);
+    setUserId(newUserId);
+    setShowUserSwitcher(false);
+    window.location.reload(); // Перезагружаем для применения нового userId
+  };
 
   if (!userId) {
     return <div>Загрузка...</div>;
@@ -32,7 +41,24 @@ function App() {
             <a href="/admin">Админ</a>
           </nav>
           <div className="user-info">
-            Пользователь: {userId}
+            <span>Пользователь: {userId}</span>
+            <button
+              onClick={() => setShowUserSwitcher(!showUserSwitcher)}
+              style={{
+                marginLeft: '10px',
+                padding: '4px 8px',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              ⚙️
+            </button>
+            {showUserSwitcher && (
+              <div className="user-switcher-menu">
+                <button onClick={handleNewUser}>Создать нового пользователя</button>
+                <p>Для тестирования можно переключаться между пользователями</p>
+              </div>
+            )}
           </div>
         </header>
         <main>

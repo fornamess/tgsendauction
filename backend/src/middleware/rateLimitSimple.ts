@@ -20,7 +20,7 @@ const stores: {
 function cleanupStore(storeName: string, windowMs: number) {
   const store = stores[storeName];
   if (!store) return;
-  
+
   const now = Date.now();
   for (const key in store) {
     if (store[key].resetTime < now) {

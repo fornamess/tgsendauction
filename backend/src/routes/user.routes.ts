@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
-import { authMiddleware } from '../utils/auth';
 import { depositLimiter } from '../middleware/rateLimitSimple';
+import { authMiddleware } from '../utils/auth';
 
 const router = Router();
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { connectDatabase } from './config/database';
 import { auctionRoutes } from './routes/auction.routes';
 import { roundRoutes } from './routes/round.routes';
@@ -12,13 +13,43 @@ import { errorHandler } from './utils/errors';
 import { apiLimiter } from './middleware/rateLimitSimple';
 import { sanitizeInput, validatePayloadSize, logSuspiciousActivity } from './middleware/security';
 
-dotenv.config();
+// Загружаем переменные окружения
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware безопасности
-app.use(cors());
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Разрешаем запросы без origin (например, мобильные приложения, Postman)
+    if (!origin) return callback(null, true);
+
+    // Разрешаем Telegram домены
+    if (
+      origin.includes('telegram.org') ||
+      origin.includes('t.me') ||
+      origin.includes('web.telegram.org') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1')
+    ) {
+      return callback(null, true);
+    }
+
+    // В production можно добавить проверку разрешенных доменов
+    if (process.env.ALLOWED_ORIGINS) {
+      const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+    }
+
+    callback(null, true); // Разрешаем все для development
+  },
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(validatePayloadSize(10 * 1024)); // 10MB максимум
 app.use(express.json({ limit: '10mb' })); // Ограничение размера тела запроса
 app.use(sanitizeInput); // Защита от XSS

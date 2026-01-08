@@ -22,10 +22,10 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
       }
       return obj;
     };
-    
+
     req.body = sanitize(req.body);
   }
-  
+
   next();
 }
 

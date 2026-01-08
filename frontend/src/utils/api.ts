@@ -9,12 +9,25 @@ const api = axios.create({
   },
 });
 
-// Добавить userId в заголовки для всех запросов
+// Добавить авторизацию в заголовки для всех запросов
 api.interceptors.request.use((config) => {
-  const userId = localStorage.getItem('userId');
-  if (userId) {
-    config.headers['X-User-Id'] = userId;
+  // Проверяем, запущено ли приложение в Telegram Mini App
+  if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+    const tg = (window as any).Telegram.WebApp;
+    const initData = tg.initData;
+    if (initData) {
+      config.headers['X-Telegram-Init-Data'] = initData;
+    }
   }
+
+  // Fallback для обычной авторизации (для разработки)
+  if (!config.headers['X-Telegram-Init-Data']) {
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+      config.headers['X-User-Id'] = userId;
+    }
+  }
+
   return config;
 });
 
