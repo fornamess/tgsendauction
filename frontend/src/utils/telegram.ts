@@ -77,20 +77,26 @@ export interface TelegramWebApp {
   openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
   openTelegramLink: (url: string) => void;
   openInvoice: (url: string, callback?: (status: string) => void) => void;
-  showPopup: (params: {
-    title?: string;
-    message: string;
-    buttons?: Array<{
-      id?: string;
-      type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive';
-      text: string;
-    }>;
-  }, callback?: (id: string) => void) => void;
+  showPopup: (
+    params: {
+      title?: string;
+      message: string;
+      buttons?: Array<{
+        id?: string;
+        type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive';
+        text: string;
+      }>;
+    },
+    callback?: (id: string) => void
+  ) => void;
   showAlert: (message: string, callback?: () => void) => void;
   showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void;
-  showScanQrPopup: (params: {
-    text?: string;
-  }, callback?: (data: string) => void) => void;
+  showScanQrPopup: (
+    params: {
+      text?: string;
+    },
+    callback?: (data: string) => void
+  ) => void;
   closeScanQrPopup: () => void;
   readTextFromClipboard: (callback?: (text: string) => void) => void;
   requestWriteAccess: (callback?: (granted: boolean) => void) => void;
@@ -130,19 +136,28 @@ export function initTelegramWebApp(): void {
   if (tg) {
     tg.ready();
     tg.expand(); // Разворачиваем приложение на весь экран
-    
+
     // Применяем тему Telegram
     if (tg.themeParams.bg_color) {
       document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color);
     }
     if (tg.themeParams.text_color) {
-      document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color);
+      document.documentElement.style.setProperty(
+        '--tg-theme-text-color',
+        tg.themeParams.text_color
+      );
     }
     if (tg.themeParams.button_color) {
-      document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color);
+      document.documentElement.style.setProperty(
+        '--tg-theme-button-color',
+        tg.themeParams.button_color
+      );
     }
     if (tg.themeParams.button_text_color) {
-      document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color);
+      document.documentElement.style.setProperty(
+        '--tg-theme-button-text-color',
+        tg.themeParams.button_text_color
+      );
     }
   }
 }

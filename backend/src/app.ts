@@ -1,17 +1,17 @@
-import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import express from 'express';
 import path from 'path';
 import { connectDatabase } from './config/database';
-import { auctionRoutes } from './routes/auction.routes';
-import { roundRoutes } from './routes/round.routes';
-import { betRoutes } from './routes/bet.routes';
-import { userRoutes } from './routes/user.routes';
-import { statsRoutes } from './routes/stats.routes';
 import { startScheduler } from './jobs/scheduler';
-import { errorHandler } from './utils/errors';
 import { apiLimiter } from './middleware/rateLimitSimple';
-import { sanitizeInput, validatePayloadSize, logSuspiciousActivity } from './middleware/security';
+import { logSuspiciousActivity, sanitizeInput, validatePayloadSize } from './middleware/security';
+import { auctionRoutes } from './routes/auction.routes';
+import { betRoutes } from './routes/bet.routes';
+import { roundRoutes } from './routes/round.routes';
+import { statsRoutes } from './routes/stats.routes';
+import { userRoutes } from './routes/user.routes';
+import { errorHandler } from './utils/errors';
 
 // Загружаем переменные окружения
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -21,7 +21,10 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware безопасности
 const corsOptions = {
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+  origin: function (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) {
     // Разрешаем запросы без origin (например, мобильные приложения, Postman)
     if (!origin) return callback(null, true);
 

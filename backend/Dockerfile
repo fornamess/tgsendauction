@@ -6,15 +6,19 @@ WORKDIR /app
 COPY package*.json ./
 
 # Устанавливаем зависимости
-RUN npm install
+RUN npm ci --only=production
 
 # Копируем исходный код
 COPY . .
 
-# Для разработки используем tsx напрямую
-ENV NODE_ENV=development
+# Собираем TypeScript
+RUN npm run build
 
+# Удаляем dev зависимости
+RUN npm prune --production
+
+# Открываем порт
 EXPOSE 3000
 
-# Используем tsx для запуска TypeScript напрямую
-CMD ["npx", "tsx", "src/app.ts"]
+# Запускаем приложение
+CMD ["npm", "start"]
