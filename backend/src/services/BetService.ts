@@ -4,6 +4,7 @@ import { Round, RoundStatus } from '../models/Round.model';
 import { TransactionType } from '../models/Transaction.model';
 import { User } from '../models/User.model';
 import { TransactionService } from './TransactionService';
+import { NotFoundError, ConflictError, InsufficientFundsError, ValidationError } from '../utils/errors';
 
 export class BetService {
   /**
@@ -22,16 +23,16 @@ export class BetService {
     // Проверить, что раунд активен
     const round = await Round.findById(roundId);
     if (!round) {
-      throw new Error('Раунд не найден');
+      throw new NotFoundError('Раунд', roundId.toString());
     }
 
     if (round.status !== RoundStatus.ACTIVE) {
-      throw new Error('Раунд не активен');
+      throw new ConflictError(`Раунд не активен. Статус: ${round.status}`);
     }
 
     const now = new Date();
     if (now < round.startTime || now > round.endTime) {
-      throw new Error('Раунд не активен в данный момент');
+      throw new ConflictError('Раунд не активен в данный момент');
     }
 
     // Найти существующую ставку
@@ -39,23 +40,23 @@ export class BetService {
 
     let bet: IBet;
 
-    if (existingBet) {
-      // Повышение ставки - заменяем старую
-      if (amount <= existingBet.amount) {
-        throw new Error('Новая ставка должна быть больше текущей');
-      }
+      if (existingBet) {
+        // Повышение ставки - заменяем старую
+        if (amount <= existingBet.amount) {
+          throw new ValidationError(`Новая ставка должна быть больше текущей (текущая: ${existingBet.amount})`);
+        }
 
-      // Списываем только разницу
-      const difference = amount - existingBet.amount;
+        // Списываем только разницу
+        const difference = amount - existingBet.amount;
 
-      // Проверить баланс
-      const user = await User.findById(userId);
-      if (!user) {
-        throw new Error('Пользователь не найден');
-      }
-      if (user.balance < difference) {
-        throw new Error('Недостаточно средств для повышения ставки');
-      }
+        // Проверить баланс
+        const user = await User.findById(userId);
+        if (!user) {
+          throw new NotFoundError('Пользователь', userId.toString());
+        }
+        if (user.balance < difference) {
+          throw new InsufficientFundsError(difference, user.balance);
+        }
 
       // Обновить ставку
       existingBet.amount = amount;
@@ -71,16 +72,16 @@ export class BetService {
         bet._id,
         `Повышение ставки в раунде ${round.number}`
       );
-    } else {
-      // Новая ставка
-      // Проверить баланс
-      const user = await User.findById(userId);
-      if (!user) {
-        throw new Error('Пользователь не найден');
-      }
-      if (user.balance < amount) {
-        throw new Error('Недостаточно средств на балансе');
-      }
+      } else {
+        // Новая ставка
+        // Проверить баланс
+        const user = await User.findById(userId);
+        if (!user) {
+          throw new NotFoundError('Пользователь', userId.toString());
+        }
+        if (user.balance < amount) {
+          throw new InsufficientFundsError(amount, user.balance);
+        }
 
       // Создать новую ставку
       bet = new Bet({
@@ -144,7 +145,7 @@ export class BetService {
     // Найти ставку в старом раунде
     const oldBet = await Bet.findOne({ userId, roundId: fromRoundId });
     if (!oldBet) {
-      throw new Error('Ставка не найдена');
+      throw new NotFoundError('Ставка');
     }
 
     // Проверить, нет ли уже ставки в новом раунде

@@ -1,5 +1,6 @@
 import { Auction, IAuction, AuctionStatus } from '../models/Auction.model';
 import { Round, IRound, RoundStatus } from '../models/Round.model';
+import { ConflictError, NotFoundError } from '../utils/errors';
 
 export class AuctionService {
   /**
@@ -9,7 +10,7 @@ export class AuctionService {
     // Проверить, нет ли активного аукциона
     const activeAuction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
     if (activeAuction) {
-      throw new Error('Уже есть активный аукцион. Завершите его перед созданием нового.');
+      throw new ConflictError('Уже есть активный аукцион. Завершите его перед созданием нового.');
     }
 
     const auction = new Auction({
@@ -34,11 +35,11 @@ export class AuctionService {
   static async startAuction(auctionId: string): Promise<IAuction> {
     const auction = await Auction.findById(auctionId);
     if (!auction) {
-      throw new Error('Аукцион не найден');
+      throw new NotFoundError('Аукцион', auctionId);
     }
 
     if (auction.status !== AuctionStatus.DRAFT) {
-      throw new Error('Аукцион уже запущен или завершен');
+      throw new ConflictError(`Аукцион уже запущен или завершен. Текущий статус: ${auction.status}`);
     }
 
     // Проверить, нет ли другого активного аукциона
@@ -47,7 +48,7 @@ export class AuctionService {
       _id: { $ne: auctionId }
     });
     if (activeAuction) {
-      throw new Error('Уже есть активный аукцион');
+      throw new ConflictError('Уже есть активный аукцион');
     }
 
     auction.status = AuctionStatus.ACTIVE;
@@ -74,11 +75,11 @@ export class AuctionService {
   static async endAuction(auctionId: string): Promise<IAuction> {
     const auction = await Auction.findById(auctionId);
     if (!auction) {
-      throw new Error('Аукцион не найден');
+      throw new NotFoundError('Аукцион', auctionId);
     }
 
     if (auction.status === AuctionStatus.ENDED) {
-      throw new Error('Аукцион уже завершен');
+      throw new ConflictError('Аукцион уже завершен');
     }
 
     // Завершить все активные раунды

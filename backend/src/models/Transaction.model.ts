@@ -50,8 +50,10 @@ const TransactionSchema = new Schema<ITransaction>(
   }
 );
 
-TransactionSchema.index({ userId: 1, createdAt: -1 });
-TransactionSchema.index({ roundId: 1 });
-TransactionSchema.index({ type: 1 });
+TransactionSchema.index({ userId: 1, createdAt: -1 }); // История пользователя
+TransactionSchema.index({ roundId: 1 }); // Транзакции раунда
+TransactionSchema.index({ type: 1 }); // Фильтрация по типу
+TransactionSchema.index({ userId: 1, type: 1 }); // Композитный индекс для запросов пользователя по типу
+TransactionSchema.index({ betId: 1 }); // Связь с ставкой
 
 export const Transaction = mongoose.model<ITransaction>('Transaction', TransactionSchema);

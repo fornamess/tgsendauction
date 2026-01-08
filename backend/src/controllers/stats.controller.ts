@@ -5,17 +5,17 @@ import { User } from '../models/User.model';
 import { Winner } from '../models/Winner.model';
 import { AuctionService } from '../services/AuctionService';
 import { AuthRequest } from '../utils/auth';
+import { NotFoundError } from '../utils/errors';
 
 export class StatsController {
   /**
    * Получить статистику аукциона
    */
   static async getStats(req: AuthRequest, res: Response) {
-    try {
-      const auction = await AuctionService.getCurrentAuction();
-      if (!auction) {
-        return res.status(404).json({ error: 'Активный аукцион не найден' });
-      }
+    const auction = await AuctionService.getCurrentAuction();
+    if (!auction) {
+      return res.status(404).json({ error: 'Активный аукцион не найден' });
+    }
 
       // Статистика раундов
       const rounds = await Round.find({ auctionId: auction._id });
@@ -55,10 +55,7 @@ export class StatsController {
         },
         users: {
           total: totalUsers,
-        },
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || 'Ошибка получения статистики' });
-    }
+      },
+    });
   }
 }

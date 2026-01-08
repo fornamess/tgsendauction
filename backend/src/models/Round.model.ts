@@ -49,6 +49,8 @@ const RoundSchema = new Schema<IRound>(
 );
 
 RoundSchema.index({ auctionId: 1, number: 1 }, { unique: true });
-RoundSchema.index({ status: 1, endTime: 1 });
+RoundSchema.index({ status: 1, endTime: 1 }); // Для планировщика
+RoundSchema.index({ auctionId: 1, status: 1 }); // Для поиска активных раундов аукциона
+RoundSchema.index({ endTime: 1 }); // Для сортировки по времени окончания
 
 export const Round = mongoose.model<IRound>('Round', RoundSchema);

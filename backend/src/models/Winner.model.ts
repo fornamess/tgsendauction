@@ -42,7 +42,9 @@ const WinnerSchema = new Schema<IWinner>(
   }
 );
 
-WinnerSchema.index({ userId: 1, roundId: 1 }, { unique: true });
-WinnerSchema.index({ roundId: 1, rank: 1 });
+WinnerSchema.index({ userId: 1, roundId: 1 }, { unique: true }); // Уникальность
+WinnerSchema.index({ roundId: 1, rank: 1 }); // Сортировка по месту в раунде
+WinnerSchema.index({ userId: 1 }); // Победители пользователя
+WinnerSchema.index({ roundId: 1 }); // Все победители раунда
 
 export const Winner = mongoose.model<IWinner>('Winner', WinnerSchema);

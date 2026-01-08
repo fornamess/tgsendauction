@@ -7,6 +7,8 @@ import { TransactionType } from '../models/Transaction.model';
 import { BetService } from './BetService';
 import { RoundService } from './RoundService';
 import { Auction } from '../models/Auction.model';
+import { NotFoundError } from '../utils/errors';
+import { logger } from '../utils/logger';
 
 export class RankingService {
   /**
@@ -19,13 +21,13 @@ export class RankingService {
 
     const round = await Round.findById(roundId);
     if (!round) {
-      throw new Error('Раунд не найден');
+      throw new NotFoundError('Раунд', roundId);
     }
 
     // Получить аукцион для информации о призе
     const auction = await Auction.findById(round.auctionId);
     if (!auction) {
-      throw new Error('Аукцион не найден');
+      throw new NotFoundError('Аукцион', round.auctionId.toString());
     }
 
     // Получить топ-100 ставок (уникальные пользователи по самой большой ставке)
@@ -96,6 +98,8 @@ export class RankingService {
         }
 
         // Перенести каждую ставку (без session - без транзакций)
+        let transferSuccess = 0;
+        let transferErrors = 0;
         for (const bet of losingUsersMap.values()) {
           try {
             await BetService.transferBetToNextRound(
@@ -103,11 +107,23 @@ export class RankingService {
               bet.roundId,
               nextRound._id
             );
-          } catch (error) {
-            console.error(`Ошибка переноса ставки пользователя ${bet.userId}:`, error);
+            transferSuccess++;
+          } catch (error: any) {
+            transferErrors++;
+            logger.error(`Ошибка переноса ставки пользователя ${bet.userId}`, error, {
+              userId: bet.userId.toString(),
+              fromRoundId: bet.roundId.toString(),
+              toRoundId: nextRound._id.toString(),
+            });
             // Продолжаем для остальных ставок
           }
         }
+        logger.info(`Перенос ставок завершен`, {
+          roundId,
+          success: transferSuccess,
+          errors: transferErrors,
+          total: losingUsersMap.size,
+        });
       }
 
       return winners;
@@ -117,7 +133,12 @@ export class RankingService {
    * Получить топ-100 текущего раунда
    */
   static async getCurrentTop100(roundId: string): Promise<any[]> {
-    const bets = await Bet.find({ roundId }).exec();
+    // Оптимизация: выбираем только нужные поля и сортируем на уровне БД
+    const bets = await Bet.find({ roundId })
+      .select('userId amount createdAt')
+      .sort({ amount: -1 })
+      .limit(200) // Берем больше для группировки
+      .exec();
 
     // Группировка по userId, берем максимальную ставку
     const userBetsMap = new Map<string, typeof bets[0]>();
@@ -152,12 +173,35 @@ export class RankingService {
    * Получить позицию пользователя в раунде
    */
   static async getUserRank(userId: mongoose.Types.ObjectId, roundId: string): Promise<number | null> {
-    const userBet = await Bet.findOne({ userId, roundId }).exec();
+    const userBet = await Bet.findOne({ userId, roundId })
+      .select('amount')
+      .exec();
     if (!userBet) {
       return null;
     }
 
-    const bets = await Bet.find({ roundId }).exec();
+    // Оптимизация: считаем только ставки больше или равные текущей
+    const higherBetsCount = await Bet.countDocuments({
+      roundId,
+      amount: { $gt: userBet.amount },
+    }).exec();
+
+    // Группировка для одинаковых сумм (берем максимум по пользователю)
+    const betsWithSameAmount = await Bet.find({
+      roundId,
+      amount: userBet.amount,
+      userId: { $ne: userId },
+    })
+      .select('userId amount')
+      .exec();
+
+    // Уникальные пользователи с такой же суммой
+    const uniqueUsersSameAmount = new Set(
+      betsWithSameAmount.map(b => b.userId.toString())
+    );
+
+    // Ранг = количество ставок больше + уникальные пользователи с такой же суммой + 1
+    return higherBetsCount + uniqueUsersSameAmount.size + 1;
 
     // Группировка и сортировка
     const userBetsMap = new Map<string, typeof bets[0]>();

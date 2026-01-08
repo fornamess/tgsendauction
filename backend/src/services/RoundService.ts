@@ -1,5 +1,6 @@
 import { Round, IRound, RoundStatus } from '../models/Round.model';
 import { Auction, AuctionStatus } from '../models/Auction.model';
+import { NotFoundError } from '../utils/errors';
 
 const ROUND_DURATION_MS = 60 * 60 * 1000; // 60 минут
 
@@ -76,7 +77,7 @@ export class RoundService {
   static async endRound(roundId: string): Promise<IRound> {
     const round = await Round.findById(roundId);
     if (!round) {
-      throw new Error('Раунд не найден');
+      throw new NotFoundError('Раунд', roundId);
     }
 
     if (round.status === RoundStatus.ENDED) {

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { ITransaction, Transaction, TransactionType } from '../models/Transaction.model';
 import { User } from '../models/User.model';
+import { NotFoundError, InsufficientFundsError } from '../utils/errors';
 
 export class TransactionService {
   /**
@@ -17,10 +18,8 @@ export class TransactionService {
     description?: string,
     session?: mongoose.ClientSession
   ): Promise<ITransaction> {
-    // Используем транзакции только если передана внешняя сессия (для BET)
-    const useTransactions = session !== undefined;
-    let sessionToUse = session;
-    let shouldCommit = false;
+    // Не используем транзакции в standalone MongoDB
+    // Используем атомарные операции MongoDB ($inc) для безопасности
 
     try {
       // Обновить баланс пользователя в зависимости от типа транзакции
@@ -41,25 +40,41 @@ export class TransactionService {
           break;
       }
 
-      // Проверить баланс перед списанием
+      // Проверить баланс перед списанием (для BET)
       if (type === TransactionType.BET) {
-        const user = await User.findById(userId).session(sessionToUse || undefined);
+        const user = await User.findById(userId);
         if (!user) {
-          throw new Error('Пользователь не найден');
+          throw new NotFoundError('Пользователь', userId.toString());
         }
         if (user.balance < amount) {
-          throw new Error('Недостаточно средств на балансе');
+          throw new InsufficientFundsError(amount, user.balance);
         }
       }
 
-      // Обновить баланс/робуксы пользователя
-      const userResult = await User.findByIdAndUpdate(userId, updateField, {
-        new: true,
-        session: sessionToUse || undefined,
-      });
-
-      if (!userResult) {
-        throw new Error('Не удалось обновить баланс пользователя');
+      // Обновить баланс/робуксы пользователя атомарной операцией
+      // Используем findOneAndUpdate с условием для предотвращения отрицательного баланса
+      let userResult;
+      if (type === TransactionType.BET) {
+        // Для ставки используем условие, чтобы баланс не стал отрицательным
+        userResult = await User.findOneAndUpdate(
+          { _id: userId, balance: { $gte: amount } }, // Условие: баланс >= суммы
+          updateField,
+          { new: true }
+        );
+        if (!userResult) {
+          // Проверяем, почему не обновилось
+          const user = await User.findById(userId);
+          if (!user) {
+            throw new NotFoundError('Пользователь', userId.toString());
+          }
+          throw new InsufficientFundsError(amount, user.balance);
+        }
+      } else {
+        // Для других операций просто обновляем
+        userResult = await User.findByIdAndUpdate(userId, updateField, { new: true });
+        if (!userResult) {
+          throw new NotFoundError('Пользователь', userId.toString());
+        }
       }
 
       // Создать транзакцию
@@ -72,7 +87,7 @@ export class TransactionService {
         description,
       });
 
-      await transaction.save({ session: sessionToUse || undefined });
+      await transaction.save();
 
       return transaction;
     } catch (error: any) {

@@ -36,8 +36,10 @@ const BetSchema = new Schema<IBet>(
   }
 );
 
-// Индекс для обеспечения одной ставки пользователя на раунд
-BetSchema.index({ userId: 1, roundId: 1 }, { unique: true });
+// Индексы для производительности
+BetSchema.index({ userId: 1, roundId: 1 }, { unique: true }); // Уникальность + быстрый поиск
 BetSchema.index({ roundId: 1, amount: -1 }); // Для сортировки топ-100
+BetSchema.index({ userId: 1, createdAt: -1 }); // История ставок пользователя
+BetSchema.index({ createdAt: -1 }); // Общая сортировка по времени
 
 export const Bet = mongoose.model<IBet>('Bet', BetSchema);
