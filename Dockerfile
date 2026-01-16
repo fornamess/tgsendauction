@@ -5,7 +5,7 @@ WORKDIR /app/frontend
 
 # Копируем и устанавливаем зависимости frontend
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm install --frozen-lockfile || npm install
 
 # Копируем исходники и собираем frontend
 COPY frontend/ ./
@@ -18,7 +18,7 @@ WORKDIR /app/backend
 
 # Копируем и устанавливаем зависимости backend
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm install --frozen-lockfile || npm install
 
 # Копируем исходники и собираем backend
 COPY backend/ ./
