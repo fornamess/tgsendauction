@@ -17,7 +17,7 @@ import { errorHandler } from './utils/errors';
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Middleware безопасности
 const corsOptions = {
