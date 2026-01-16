@@ -126,8 +126,18 @@ const startServer = async () => {
   try {
     await connectDatabase();
 
-    app.listen(PORT, '0.0.0.0', () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Сервер запущен на порту ${PORT}`);
+      console.log(`📍 Доступен по адресу: http://0.0.0.0:${PORT}`);
+      console.log(`✅ Health check: http://0.0.0.0:${PORT}/health`);
+    });
+
+    server.on('error', (error: any) => {
+      console.error('❌ Ошибка сервера:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Порт ${PORT} уже занят`);
+      }
+      process.exit(1);
     });
 
     // Запуск планировщика раундов
