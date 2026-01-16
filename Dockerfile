@@ -104,8 +104,10 @@ RUN echo '[program:nginx]' > /etc/supervisor/conf.d/nginx.conf && \
     echo 'stdout_logfile=/var/log/nginx.out.log' >> /etc/supervisor/conf.d/nginx.conf && \
     echo 'priority=30' >> /etc/supervisor/conf.d/nginx.conf
 
-# Создаем директорию для MongoDB данных (запускаем от root, так что права root)
-RUN mkdir -p /data/db
+# Создаем директорию для MongoDB данных с правильными правами
+RUN mkdir -p /data/db && \
+    chmod 755 /data/db && \
+    chown -R root:root /data/db
 
 # Открываем порты
 EXPOSE 80 3000 27017
