@@ -9,12 +9,15 @@ export class AuctionController {
    * Получить текущий активный аукцион
    */
   static async getCurrent(req: AuthRequest, res: Response) {
-    const auction = await AuctionService.getCurrentAuction();
-    if (!auction) {
-      // Не бросаем ошибку для 404 - это нормальная ситуация
-      return res.status(404).json({ error: 'Активный аукцион не найден' });
+    try {
+      const auction = await AuctionService.getCurrentAuction();
+      // Возвращаем 200 с null, если аукцион не найден (это нормальная ситуация)
+      // Фронтенд обработает это и покажет соответствующее сообщение
+      return res.status(200).json(auction);
+    } catch (error: any) {
+      console.error('Ошибка получения текущего аукциона:', error);
+      return res.status(500).json({ error: 'Ошибка получения аукциона' });
     }
-    res.json(auction);
   }
 
   /**

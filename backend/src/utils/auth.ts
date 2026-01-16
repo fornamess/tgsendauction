@@ -48,7 +48,20 @@ export async function authMiddleware(
     // Если userId не передан, создаем анонимного пользователя или возвращаем ошибку
     if (!userId) {
       // Для некоторых эндпоинтов можно создать пользователя автоматически
-      if (req.method === 'GET' && (req.path.includes('/api/auction') || req.path.includes('/api/round') || req.path.includes('/api/stats'))) {
+      // Проверяем как полный путь, так и относительный (для mounted routers)
+      const fullPath = req.baseUrl + req.path;
+      const isPublicEndpoint = req.method === 'GET' && (
+        req.path.includes('/api/auction') || 
+        req.path.includes('/api/round') || 
+        req.path.includes('/api/stats') ||
+        fullPath.includes('/api/auction') || 
+        fullPath.includes('/api/round') || 
+        fullPath.includes('/api/stats') ||
+        req.originalUrl.includes('/api/auction') || 
+        req.originalUrl.includes('/api/round') || 
+        req.originalUrl.includes('/api/stats')
+      );
+      if (isPublicEndpoint) {
         return next(); // Публичные эндпоинты
       }
       return res.status(401).json({ error: 'Необходима авторизация. Передайте userId в заголовке X-User-Id или query параметре' });
