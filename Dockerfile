@@ -67,12 +67,13 @@ RUN mkdir -p /etc/supervisor/conf.d
 
 # Конфигурация для MongoDB
 RUN echo '[program:mongodb]' > /etc/supervisor/conf.d/mongodb.conf && \
-    echo 'command=/usr/bin/mongod --bind_ip_all --dbpath /data/db --noauth' >> /etc/supervisor/conf.d/mongodb.conf && \
+    echo 'command=/usr/bin/mongod --bind_ip_all --dbpath /data/db --noauth --logpath /var/log/mongodb.log' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'autostart=true' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'stderr_logfile=/var/log/mongodb.err.log' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'stdout_logfile=/var/log/mongodb.out.log' >> /etc/supervisor/conf.d/mongodb.conf && \
-    echo 'priority=10' >> /etc/supervisor/conf.d/mongodb.conf
+    echo 'priority=10' >> /etc/supervisor/conf.d/mongodb.conf && \
+    echo 'user=root' >> /etc/supervisor/conf.d/mongodb.conf
 
 # Создаем скрипт ожидания MongoDB
 RUN echo '#!/bin/bash' > /app/wait-for-mongo.sh && \
@@ -118,6 +119,7 @@ ENV TELEGRAM_BOT_TOKEN=8090299133:AAHL83f8hxEPwtc_iv8CH9cGQqmcHmRtHfk
 # Создаем основной конфигурационный файл supervisord
 RUN echo '[supervisord]' > /etc/supervisor/supervisord.conf && \
     echo 'nodaemon=true' >> /etc/supervisor/supervisord.conf && \
+    echo 'user=root' >> /etc/supervisor/supervisord.conf && \
     echo '[include]' >> /etc/supervisor/supervisord.conf && \
     echo 'files = /etc/supervisor/conf.d/*.conf' >> /etc/supervisor/supervisord.conf
 
