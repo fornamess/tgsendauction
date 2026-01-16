@@ -1,59 +1,30 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:7
-    container_name: tgsendauction-mongodb-prod
-    restart: unless-stopped
-    ports:
-      - '27017:27017'
-    volumes:
-      - mongodb_data_prod:/data/db
-    environment:
-      MONGO_INITDB_DATABASE: auction_db
-    networks:
-      - auction-network
-    command: mongod --auth
-
-  backend:
+  app:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
-    container_name: tgsendauction-backend-prod
+      context: .
+      dockerfile: Dockerfile
+    container_name: tgsendauction-prod
     restart: unless-stopped
     ports:
-      - '3000:3000'
+      - '80:80'      # Frontend (nginx)
+      - '3000:3000'  # Backend API
+      - '27017:27017' # MongoDB
     environment:
       NODE_ENV: production
-      MONGODB_URI: mongodb://mongodb:27017/auction_db
       PORT: 3000
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://web.telegram.org,https://t.me}
-    depends_on:
-      - mongodb
-    networks:
-      - auction-network
-    env_file:
-      - .env.prod
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-    container_name: tgsendauction-frontend-prod
-    restart: unless-stopped
-    ports:
-      - '80:80'
-    environment:
-      VITE_API_URL: ${VITE_API_URL:-https://api.your-domain.com}
-    depends_on:
-      - backend
-    networks:
-      - auction-network
+      MONGODB_URI: mongodb://localhost:27017/auction_db
+      TELEGRAM_BOT_TOKEN: 8090299133:AAHL83f8hxEPwtc_iv8CH9cGQqmcHmRtHfk
+      ALLOWED_ORIGINS: https://web.telegram.org,https://t.me
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
-  mongodb_data_prod:
-
-networks:
-  auction-network:
-    driver: bridge
+  mongodb_data:
