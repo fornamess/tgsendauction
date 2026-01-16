@@ -6,7 +6,8 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "test": "tsx src/index.ts",
-    "stress": "tsx src/stress-test.ts"
+    "stress": "tsx src/stress-test.ts",
+    "rps": "tsx src/rps-test.ts"
   },
   "keywords": [
     "auction",
