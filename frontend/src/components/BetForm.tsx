@@ -14,7 +14,7 @@ interface BetFormProps {
   onBetPlaced: (extendedTime?: Date) => void;
 }
 
-function BetForm({ userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
+function BetForm({ userId: _userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
   const [amount, setAmount] = useState<number>(currentBet?.amount || 1000);
   const [minAmount, setMinAmount] = useState<number>(1000);
   const [loading, setLoading] = useState(false);

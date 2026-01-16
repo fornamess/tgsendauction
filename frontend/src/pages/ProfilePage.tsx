@@ -37,7 +37,7 @@ interface ProfilePageProps {
   userId: string;
 }
 
-function ProfilePage({ userId }: ProfilePageProps) {
+function ProfilePage({ userId: _userId }: ProfilePageProps) {
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState<number>(10000);

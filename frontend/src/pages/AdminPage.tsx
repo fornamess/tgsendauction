@@ -17,7 +17,7 @@ interface AdminPageProps {
   userId: string;
 }
 
-function AdminPage({ userId }: AdminPageProps) {
+function AdminPage({ userId: _userId }: AdminPageProps) {
   const [auction, setAuction] = useState<Auction | null>(null);
   const [loading, setLoading] = useState(false);
   const [newAuctionName, setNewAuctionName] = useState('');
