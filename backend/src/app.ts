@@ -34,7 +34,9 @@ const corsOptions = {
       origin.includes('t.me') ||
       origin.includes('web.telegram.org') ||
       origin.includes('localhost') ||
-      origin.includes('127.0.0.1')
+      origin.includes('127.0.0.1') ||
+      origin.includes('amvera.tech') ||
+      origin.includes('amvera.ru')
     ) {
       return callback(null, true);
     }
@@ -124,7 +126,7 @@ const startServer = async () => {
   try {
     await connectDatabase();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Сервер запущен на порту ${PORT}`);
     });
 
