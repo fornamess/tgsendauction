@@ -67,13 +67,14 @@ RUN mkdir -p /etc/supervisor/conf.d
 
 # Конфигурация для MongoDB
 RUN echo '[program:mongodb]' > /etc/supervisor/conf.d/mongodb.conf && \
-    echo 'command=/usr/bin/mongod --bind_ip_all --dbpath /data/db --noauth --logpath /var/log/mongodb.log' >> /etc/supervisor/conf.d/mongodb.conf && \
+    echo 'command=/bin/bash -c "mkdir -p /data/db && chmod 755 /data/db && /usr/bin/mongod --bind_ip_all --dbpath /data/db --noauth"' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'autostart=true' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'stderr_logfile=/var/log/mongodb.err.log' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'stdout_logfile=/var/log/mongodb.out.log' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'priority=10' >> /etc/supervisor/conf.d/mongodb.conf && \
-    echo 'user=root' >> /etc/supervisor/conf.d/mongodb.conf
+    echo 'user=root' >> /etc/supervisor/conf.d/mongodb.conf && \
+    echo 'startsecs=5' >> /etc/supervisor/conf.d/mongodb.conf
 
 # Создаем скрипт ожидания MongoDB
 RUN echo '#!/bin/bash' > /app/wait-for-mongo.sh && \
