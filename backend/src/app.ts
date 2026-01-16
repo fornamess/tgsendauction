@@ -60,10 +60,10 @@ app.use(logSuspiciousActivity); // Логирование подозритель
 
 // Rate limiting для всех API запросов, кроме админских операций
 app.use('/api', (req, res, next) => {
-  // В development режиме можно обойти rate limiting для тестов через заголовок
+  // Можно обойти rate limiting для тестов через заголовок X-Bypass-RateLimit
   // Express приводит заголовки к нижнему регистру, но проверим оба варианта для надежности
   const bypassHeader = req.headers['x-bypass-ratelimit'] || req.headers['X-Bypass-RateLimit'];
-  if (process.env.NODE_ENV !== 'production' && bypassHeader === 'true') {
+  if (bypassHeader === 'true') {
     return next(); // Пропускаем без rate limiting для тестов
   }
 
