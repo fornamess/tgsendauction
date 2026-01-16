@@ -30,7 +30,6 @@ const WinnerSchema = new Schema<IWinner>(
       type: Number,
       required: true,
       min: 1,
-      max: 100,
     },
     prizeRobux: {
       type: Number,

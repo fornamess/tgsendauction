@@ -26,6 +26,7 @@ interface CurrentRoundData {
   top100: Array<{ rank: number; bet: Bet }>;
   userBet: Bet | null;
   userRank: number | null;
+  winnersPerRound?: number;
 }
 
 interface AuctionDisplayProps {
@@ -37,6 +38,7 @@ function AuctionDisplay({ userId }: AuctionDisplayProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>('');
+  const [timeExtended, setTimeExtended] = useState(false);
 
   useEffect(() => {
     fetchCurrentRound();
@@ -79,7 +81,19 @@ function AuctionDisplay({ userId }: AuctionDisplayProps) {
     }
   };
 
-  const handleBetPlaced = () => {
+  const handleBetPlaced = (extendedTime?: Date) => {
+    if (extendedTime && data?.round) {
+      // Обновить endTime в состоянии
+      setData({
+        ...data,
+        round: {
+          ...data.round,
+          endTime: extendedTime.toISOString(),
+        },
+      });
+      setTimeExtended(true);
+      setTimeout(() => setTimeExtended(false), 5000); // Скрыть уведомление через 5 секунд
+    }
     fetchCurrentRound();
   };
 
@@ -97,10 +111,16 @@ function AuctionDisplay({ userId }: AuctionDisplayProps) {
     );
   }
 
-  const { round, top100, userBet, userRank } = data;
+  const { round, top100, userBet, userRank, winnersPerRound } = data;
+  const topCount = winnersPerRound || 100;
 
   return (
     <div className="auction-display">
+      {timeExtended && round.number === 1 && (
+        <div className="anti-sniping-notification">
+          ⏰ Время раунда продлено на 30 секунд (anti-sniping механизм)
+        </div>
+      )}
       <div className="round-header">
         <h1>Раунд #{round.number}</h1>
         <div className="round-info">
@@ -128,7 +148,7 @@ function AuctionDisplay({ userId }: AuctionDisplayProps) {
         </div>
 
         <div className="top-bets-section">
-          <h2>ТОП-100 ставок</h2>
+          <h2>ТОП-{topCount} ставок</h2>
           {userBet && userRank && (
             <div className="user-rank">
               Ваша ставка: {userBet.amount} руб. - Место: #{userRank}

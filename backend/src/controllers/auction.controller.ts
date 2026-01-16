@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AuctionService } from '../services/AuctionService';
 import { AuthRequest } from '../utils/auth';
 import { NotFoundError, ConflictError } from '../utils/errors';
-import { validateRequest, createAuctionSchema } from '../utils/validation';
+import { validateRequest, createAuctionSchema, updateAuctionSchema } from '../utils/validation';
 
 export class AuctionController {
   /**
@@ -22,9 +22,16 @@ export class AuctionController {
    */
   static async create(req: AuthRequest, res: Response) {
     try {
-      const { name, prizeRobux } = createAuctionSchema.parse(req.body);
+      const { name, rewardAmount, winnersPerRound, totalRounds, roundDurationMinutes } =
+        createAuctionSchema.parse(req.body);
 
-      const auction = await AuctionService.createAuction(name, prizeRobux);
+      const auction = await AuctionService.createAuction(
+        name,
+        rewardAmount,
+        winnersPerRound,
+        totalRounds,
+        roundDurationMinutes
+      );
       res.status(201).json(auction);
     } catch (error: any) {
       if (error.message?.includes('активный аукцион')) {
@@ -83,5 +90,15 @@ export class AuctionController {
   static async getAll(req: AuthRequest, res: Response) {
     const auctions = await AuctionService.getAllAuctions();
     res.json(auctions);
+  }
+
+  /**
+   * Обновить настройки аукциона (админ)
+   */
+  static async update(req: AuthRequest, res: Response) {
+    const { auctionId } = req.params;
+    const updates = updateAuctionSchema.parse(req.body);
+    const auction = await AuctionService.updateAuction(auctionId, updates);
+    res.json(auction);
   }
 }

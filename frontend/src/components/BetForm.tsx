@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../utils/api';
 import './BetForm.css';
 
@@ -11,7 +11,7 @@ interface BetFormProps {
   userId: string;
   roundId: string;
   currentBet: Bet | null;
-  onBetPlaced: () => void;
+  onBetPlaced: (extendedTime?: Date) => void;
 }
 
 function BetForm({ userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
@@ -50,12 +50,16 @@ function BetForm({ userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
     setSuccess(false);
 
     try {
-      await api.post('/api/bet', {
+      const response = await api.post('/api/bet', {
         roundId,
         amount,
       });
       setSuccess(true);
-      onBetPlaced();
+      // Передать информацию о продлении времени, если есть
+      const extendedTime = response.data.round?.endTime
+        ? new Date(response.data.round.endTime)
+        : undefined;
+      onBetPlaced(extendedTime);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Ошибка размещения ставки');
@@ -65,7 +69,7 @@ function BetForm({ userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
   };
 
   const increaseAmount = (value: number) => {
-    setAmount(prev => {
+    setAmount((prev) => {
       const newAmount = prev + value;
       return newAmount >= minAmount ? newAmount : minAmount;
     });
@@ -128,12 +132,12 @@ function BetForm({ userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">Ставка успешно размещена!</div>}
 
-        <button
-          type="submit"
-          className="submit-button"
-          disabled={loading || amount < minAmount}
-        >
-          {loading ? 'Обработка...' : currentBet ? `Повысить ставку на ${amount - currentBet.amount} руб.` : `Поставить ${amount} руб.`}
+        <button type="submit" className="submit-button" disabled={loading || amount < minAmount}>
+          {loading
+            ? 'Обработка...'
+            : currentBet
+            ? `Повысить ставку на ${amount - currentBet.amount} руб.`
+            : `Поставить ${amount} руб.`}
         </button>
       </form>
     </div>

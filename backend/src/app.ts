@@ -58,8 +58,38 @@ app.use(express.json({ limit: '10mb' })); // Ограничение размер
 app.use(sanitizeInput); // Защита от XSS
 app.use(logSuspiciousActivity); // Логирование подозрительной активности
 
-// Rate limiting для всех API запросов
-app.use('/api', apiLimiter);
+// Rate limiting для всех API запросов, кроме админских операций
+app.use('/api', (req, res, next) => {
+  // В development режиме можно обойти rate limiting для тестов через заголовок
+  // Express приводит заголовки к нижнему регистру, но проверим оба варианта для надежности
+  const bypassHeader = req.headers['x-bypass-ratelimit'] || req.headers['X-Bypass-RateLimit'];
+  if (process.env.NODE_ENV !== 'production' && bypassHeader === 'true') {
+    return next(); // Пропускаем без rate limiting для тестов
+  }
+
+  // Исключаем админские операции из rate limiting
+  // Админские операции на /api/auction:
+  // - POST /api/auction - создание аукциона
+  // - PATCH /api/auction/:id - обновление аукциона
+  // - POST /api/auction/:id/start - запуск аукциона
+  // - POST /api/auction/:id/end - завершение аукциона
+  if (req.path.startsWith('/auction')) {
+    // POST на корень - создание
+    if (req.method === 'POST' && req.path === '/auction') {
+      return next(); // Пропускаем без rate limiting
+    }
+    // PATCH на /auction/:id - обновление
+    if (req.method === 'PATCH' && /^\/auction\/[^/]+$/.test(req.path)) {
+      return next(); // Пропускаем без rate limiting
+    }
+    // POST на /auction/:id/start или /auction/:id/end - запуск/завершение
+    if (req.method === 'POST' && (req.path.includes('/start') || req.path.includes('/end'))) {
+      return next(); // Пропускаем без rate limiting
+    }
+  }
+  // Для остальных запросов применяем rate limiting
+  return apiLimiter(req, res, next);
+});
 
 // Логирование всех запросов (только в development)
 if (process.env.NODE_ENV !== 'production') {

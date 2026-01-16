@@ -15,11 +15,11 @@ interface TopBetsListProps {
 }
 
 function TopBetsList({ top100, userBet }: TopBetsListProps) {
-  const getRankColor = (rank: number) => {
-    if (rank === 1) return '#ffd700'; // Золото
-    if (rank === 2) return '#c0c0c0'; // Серебро
-    if (rank === 3) return '#cd7f32'; // Бронза
-    return '#fff';
+  const getTopClass = (rank: number) => {
+    if (rank === 1) return 'top-1';
+    if (rank === 2) return 'top-2';
+    if (rank === 3) return 'top-3';
+    return '';
   };
 
   return (
@@ -33,12 +33,11 @@ function TopBetsList({ top100, userBet }: TopBetsListProps) {
             return (
               <div
                 key={bet._id}
-                className={`bet-item ${isUserBet ? 'user-bet' : ''}`}
-                style={{ backgroundColor: getRankColor(rank) }}
+                className={`bet-item ${getTopClass(rank)} ${isUserBet ? 'user-bet' : ''}`}
               >
                 <div className="bet-rank">#{rank}</div>
                 <div className="bet-user">{bet.userId.username}</div>
-                <div className="bet-amount">★{bet.amount.toLocaleString('ru-RU')}</div>
+                <div className="bet-amount">{bet.amount.toLocaleString('ru-RU')} руб.</div>
               </div>
             );
           })}

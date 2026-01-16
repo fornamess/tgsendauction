@@ -3,7 +3,34 @@ import { z } from 'zod';
 // Схемы валидации для API запросов
 export const createAuctionSchema = z.object({
   name: z.string().min(1, 'Название аукциона обязательно').max(200, 'Название слишком длинное'),
-  prizeRobux: z.number().int().positive('Приз должен быть положительным числом').max(1000000, 'Слишком большой приз').optional().default(1000),
+  rewardAmount: z
+    .number()
+    .int()
+    .positive('Приз должен быть положительным числом')
+    .max(1000000, 'Слишком большой приз')
+    .optional()
+    .default(1000),
+  winnersPerRound: z
+    .number()
+    .int()
+    .positive('Количество победителей должно быть положительным числом')
+    .max(10000, 'Слишком большое количество победителей')
+    .optional()
+    .default(100),
+  totalRounds: z
+    .number()
+    .int()
+    .positive('Количество раундов должно быть положительным числом')
+    .max(1000, 'Слишком большое количество раундов')
+    .optional()
+    .default(30),
+  roundDurationMinutes: z
+    .number()
+    .int()
+    .positive('Длительность раунда должна быть положительным числом')
+    .max(1440, 'Слишком большая длительность раунда')
+    .optional()
+    .default(60),
 });
 
 export const placeBetSchema = z.object({
@@ -21,6 +48,34 @@ export const startAuctionSchema = z.object({
 
 export const endAuctionSchema = z.object({
   auctionId: z.string().min(1, 'auctionId обязателен'),
+});
+
+export const updateAuctionSchema = z.object({
+  name: z.string().min(1, 'Название аукциона обязательно').max(200, 'Название слишком длинное').optional(),
+  rewardAmount: z
+    .number()
+    .int()
+    .positive('Приз должен быть положительным числом')
+    .max(1000000, 'Слишком большой приз')
+    .optional(),
+  winnersPerRound: z
+    .number()
+    .int()
+    .positive('Количество победителей должно быть положительным числом')
+    .max(10000, 'Слишком большое количество победителей')
+    .optional(),
+  totalRounds: z
+    .number()
+    .int()
+    .positive('Количество раундов должно быть положительным числом')
+    .max(1000, 'Слишком большое количество раундов')
+    .optional(),
+  roundDurationMinutes: z
+    .number()
+    .int()
+    .positive('Длительность раунда должна быть положительным числом')
+    .max(1440, 'Слишком большая длительность раунда')
+    .optional(),
 });
 
 // Middleware для валидации

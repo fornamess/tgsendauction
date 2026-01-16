@@ -3,8 +3,15 @@ import { Bet, IBet } from '../models/Bet.model';
 import { Round, RoundStatus } from '../models/Round.model';
 import { TransactionType } from '../models/Transaction.model';
 import { User } from '../models/User.model';
+import {
+  ConflictError,
+  InsufficientFundsError,
+  NotFoundError,
+  ValidationError,
+} from '../utils/errors';
+import { logger } from '../utils/logger';
+import { RoundService } from './RoundService';
 import { TransactionService } from './TransactionService';
-import { NotFoundError, ConflictError, InsufficientFundsError, ValidationError } from '../utils/errors';
 
 export class BetService {
   /**
@@ -21,7 +28,7 @@ export class BetService {
     // Полагаемся на уникальный индекс userId+roundId для предотвращения дубликатов
 
     // Проверить, что раунд активен
-    const round = await Round.findById(roundId);
+    let round = await Round.findById(roundId);
     if (!round) {
       throw new NotFoundError('Раунд', roundId.toString());
     }
@@ -35,28 +42,53 @@ export class BetService {
       throw new ConflictError('Раунд не активен в данный момент');
     }
 
+    // Anti-sniping механизм: продление времени для первого раунда
+    if (round.number === 1) {
+      const timeUntilEnd = round.endTime.getTime() - now.getTime();
+      const SNIPING_THRESHOLD = 10 * 1000; // 10 секунд
+      const EXTENSION_TIME = 30 * 1000; // 30 секунд
+
+      if (timeUntilEnd <= SNIPING_THRESHOLD && timeUntilEnd > 0) {
+        await RoundService.extendRoundTime(roundId.toString(), EXTENSION_TIME);
+        // Обновить round для дальнейшей проверки
+        const updatedRound = await Round.findById(roundId);
+        if (updatedRound) {
+          round = updatedRound;
+          logger.info(
+            `⏰ Anti-sniping: раунд #${round.number} продлен на ${EXTENSION_TIME / 1000} секунд`,
+            {
+              roundId: roundId.toString(),
+              timeUntilEnd: timeUntilEnd / 1000,
+            }
+          );
+        }
+      }
+    }
+
     // Найти существующую ставку
     const existingBet = await Bet.findOne({ userId, roundId });
 
     let bet: IBet;
 
-      if (existingBet) {
-        // Повышение ставки - заменяем старую
-        if (amount <= existingBet.amount) {
-          throw new ValidationError(`Новая ставка должна быть больше текущей (текущая: ${existingBet.amount})`);
-        }
+    if (existingBet) {
+      // Повышение ставки - заменяем старую
+      if (amount <= existingBet.amount) {
+        throw new ValidationError(
+          `Новая ставка должна быть больше текущей (текущая: ${existingBet.amount})`
+        );
+      }
 
-        // Списываем только разницу
-        const difference = amount - existingBet.amount;
+      // Списываем только разницу
+      const difference = amount - existingBet.amount;
 
-        // Проверить баланс
-        const user = await User.findById(userId);
-        if (!user) {
-          throw new NotFoundError('Пользователь', userId.toString());
-        }
-        if (user.balance < difference) {
-          throw new InsufficientFundsError(difference, user.balance);
-        }
+      // Проверить баланс
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new NotFoundError('Пользователь', userId.toString());
+      }
+      if (user.balance < difference) {
+        throw new InsufficientFundsError(difference, user.balance);
+      }
 
       // Обновить ставку
       existingBet.amount = amount;
@@ -64,6 +96,10 @@ export class BetService {
       bet = await existingBet.save();
 
       // Создать транзакцию на разницу (без session - без транзакций)
+      // Проверяем, что round все еще существует
+      if (!round) {
+        throw new NotFoundError('Раунд', roundId.toString());
+      }
       await TransactionService.createTransaction(
         userId,
         TransactionType.BET,
@@ -72,16 +108,16 @@ export class BetService {
         bet._id,
         `Повышение ставки в раунде ${round.number}`
       );
-      } else {
-        // Новая ставка
-        // Проверить баланс
-        const user = await User.findById(userId);
-        if (!user) {
-          throw new NotFoundError('Пользователь', userId.toString());
-        }
-        if (user.balance < amount) {
-          throw new InsufficientFundsError(amount, user.balance);
-        }
+    } else {
+      // Новая ставка
+      // Проверить баланс
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new NotFoundError('Пользователь', userId.toString());
+      }
+      if (user.balance < amount) {
+        throw new InsufficientFundsError(amount, user.balance);
+      }
 
       // Создать новую ставку
       bet = new Bet({
@@ -93,6 +129,10 @@ export class BetService {
       bet = await bet.save();
 
       // Создать транзакцию (без session - без транзакций)
+      // Проверяем, что round все еще существует
+      if (!round) {
+        throw new NotFoundError('Раунд', roundId.toString());
+      }
       await TransactionService.createTransaction(
         userId,
         TransactionType.BET,

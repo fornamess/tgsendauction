@@ -5,95 +5,190 @@
 }
 
 .App-header {
-  background-color: #282c34;
-  padding: 1rem 2rem;
-  color: white;
+  background: rgba(18, 18, 26, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  padding: var(--spacing-md) var(--spacing-xl);
+  color: var(--text-primary);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-sm);
+}
+
+@keyframes goldShimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 .App-header nav {
   display: flex;
-  gap: 2rem;
+  gap: var(--spacing-lg);
+  align-items: center;
 }
 
 .App-header nav a {
-  color: white;
+  color: var(--text-secondary);
   text-decoration: none;
   font-weight: 500;
+  font-size: 15px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
+  position: relative;
+}
+
+.App-header nav a::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background: var(--accent-primary);
+  transition: width var(--transition-base);
 }
 
 .App-header nav a:hover {
-  text-decoration: underline;
+  color: var(--accent-primary);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.App-header nav a:hover::before {
+  width: 80%;
 }
 
 .user-info {
-  font-size: 0.9rem;
-  opacity: 0.8;
+  font-size: 14px;
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
+  color: var(--text-secondary);
+}
+
+.user-info span {
+  font-weight: 500;
 }
 
 .user-info button {
   background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
+  font-size: 16px;
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
 }
 
 .user-info button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--accent-primary);
+  transform: rotate(90deg);
 }
 
 .user-switcher-menu {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + var(--spacing-sm));
   right: 0;
-  background: white;
-  padding: 16px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-color);
   z-index: 1000;
-  min-width: 250px;
-  color: #333;
+  min-width: 280px;
+  color: var(--text-primary);
+  animation: fadeIn var(--transition-base);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .user-switcher-menu button {
   width: 100%;
-  padding: 10px 16px;
-  background: #007bff;
-  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--gradient-gold);
+  color: #000000;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background 0.2s;
-  margin-bottom: 8px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition: all var(--transition-base);
+  margin-bottom: var(--spacing-sm);
+  box-shadow: var(--shadow-gold);
 }
 
 .user-switcher-menu button:hover {
-  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-gold-hover);
 }
 
 .user-switcher-menu p {
   font-size: 12px;
   margin: 0;
-  color: #666;
-  line-height: 1.4;
+  color: var(--text-tertiary);
+  line-height: 1.5;
 }
 
 main {
   flex: 1;
-  padding: 2rem;
-  max-width: 1200px;
+  padding: var(--spacing-xl);
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+}
+
+/* Glassmorphism эффект - Золотой */
+.glass {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid var(--border-gold);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-gold);
+}
+
+/* Градиентный текст - Золотой */
+.gradient-text {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: goldTextShine 3s ease-in-out infinite;
+}
+
+@keyframes goldTextShine {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.3);
+  }
 }

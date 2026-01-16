@@ -77,6 +77,18 @@ export function createRateLimiter(
   };
 }
 
-export const apiLimiter = createRateLimiter(15 * 60 * 1000, 100, 'Слишком много запросов, попробуйте позже');
-export const betLimiter = createRateLimiter(60 * 1000, 10, 'Слишком много ставок, подождите немного');
-export const depositLimiter = createRateLimiter(60 * 1000, 5, 'Слишком много пополнений, подождите немного');
+export const apiLimiter = createRateLimiter(
+  15 * 60 * 1000,
+  100,
+  'Слишком много запросов, попробуйте позже'
+);
+export const betLimiter = createRateLimiter(
+  60 * 1000,
+  10,
+  'Слишком много ставок, подождите немного'
+);
+export const depositLimiter = createRateLimiter(
+  60 * 1000,
+  5,
+  'Слишком много пополнений, подождите немного'
+);

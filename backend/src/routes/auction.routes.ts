@@ -11,6 +11,7 @@ router.get('/:auctionId', authMiddleware, AuctionController.getById);
 
 // Админ эндпоинты (в реальном проекте здесь была бы проверка роли)
 router.post('/', authMiddleware, AuctionController.create);
+router.patch('/:auctionId', authMiddleware, AuctionController.update);
 router.post('/:auctionId/start', authMiddleware, AuctionController.start);
 router.post('/:auctionId/end', authMiddleware, AuctionController.end);
 

@@ -1,200 +1,324 @@
 .profile-page {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: var(--spacing-xl);
+  animation: fadeIn var(--transition-base);
 }
 
 .profile-header {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+}
+
+.profile-header:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--border-gold);
 }
 
 .profile-header h1 {
-  margin-bottom: 1rem;
-  color: #333;
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .user-balance {
   display: flex;
-  gap: 2rem;
+  gap: var(--spacing-xl);
+  flex-wrap: wrap;
 }
 
 .balance-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 200px;
+  padding: var(--spacing-lg);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
 }
 
 .balance-item .label {
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
 }
 
 .balance-item .value {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #333;
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .balance-item .value.robux {
-  color: #f39c12;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .deposit-section,
 .bets-section,
 .transactions-section {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
 }
 
 .deposit-section h2,
 .bets-section h2,
 .transactions-section h2 {
-  margin-bottom: 1rem;
-  color: #333;
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .deposit-section form {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-md);
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .deposit-section input {
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   font-size: 1rem;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 600;
+  transition: all var(--transition-base);
   flex: 1;
-  max-width: 200px;
+  min-width: 150px;
+  max-width: 250px;
+}
+
+.deposit-section input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: rgba(255, 215, 0, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3), var(--shadow-gold);
 }
 
 .deposit-section button {
-  padding: 0.75rem 1.5rem;
-  background: #1976d2;
-  color: white;
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: var(--gradient-gold);
+  color: var(--text-primary);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   font-size: 1rem;
+  font-weight: 700;
   cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .deposit-section button:hover:not(:disabled) {
-  background: #1565c0;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md), var(--shadow-glow);
 }
 
 .deposit-section button:disabled {
-  background: #ccc;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .empty {
   text-align: center;
-  padding: 2rem;
-  color: #666;
+  padding: var(--spacing-2xl);
+  color: var(--text-tertiary);
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .bets-list,
 .transactions-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .bet-item {
-  padding: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: all var(--transition-base);
+}
+
+.bet-item:hover {
+  background: rgba(255, 215, 0, 0.1);
+  border-color: var(--border-gold);
+  transform: translateX(4px);
 }
 
 .bet-info {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-lg);
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .bet-round {
-  font-weight: 500;
-  color: #555;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .bet-amount {
-  font-weight: bold;
-  color: #f39c12;
+  font-weight: 800;
+  font-size: 1.125rem;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .bet-date {
-  color: #999;
-  font-size: 0.9rem;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
 }
 
 .transaction-item {
-  padding: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  transition: all var(--transition-base);
+}
+
+.transaction-item:hover {
+  background: rgba(255, 215, 0, 0.1);
+  border-color: var(--border-gold);
+  transform: translateX(4px);
 }
 
 .transaction-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-sm);
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
 }
 
 .transaction-type {
-  font-weight: 500;
-  color: #555;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .transaction-amount {
-  font-weight: bold;
-  font-size: 1.1rem;
+  font-weight: 800;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .transaction-amount.bet {
-  color: #e74c3c;
+  color: #ef4444;
 }
 
 .transaction-amount.refund,
 .transaction-amount.deposit {
-  color: #27ae60;
+  color: #10b981;
 }
 
 .transaction-amount.prize {
-  color: #f39c12;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .transaction-description {
-  color: #666;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  margin-bottom: var(--spacing-xs);
+  line-height: 1.5;
 }
 
 .transaction-date {
-  color: #999;
-  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
 }
 
 .loading {
   text-align: center;
-  padding: 2rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: var(--spacing-2xl);
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+.loading::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-primary);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error {
   text-align: center;
-  padding: 2rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  color: #e74c3c;
+  padding: var(--spacing-2xl);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  box-shadow: var(--shadow-card);
+  color: #ef4444;
+  font-weight: 600;
 }

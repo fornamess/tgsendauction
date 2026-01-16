@@ -6,7 +6,13 @@ export class AuctionService {
   /**
    * Создать новый аукцион
    */
-  static async createAuction(name: string, prizeRobux: number = 1000): Promise<IAuction> {
+  static async createAuction(
+    name: string,
+    rewardAmount: number = 1000,
+    winnersPerRound: number = 100,
+    totalRounds: number = 30,
+    roundDurationMinutes: number = 60
+  ): Promise<IAuction> {
     // Проверить, нет ли активного аукциона
     const activeAuction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
     if (activeAuction) {
@@ -15,7 +21,11 @@ export class AuctionService {
 
     const auction = new Auction({
       name,
-      prizeRobux,
+      prizeRobux: rewardAmount,
+      rewardAmount,
+      winnersPerRound,
+      totalRounds,
+      roundDurationMinutes,
       status: AuctionStatus.DRAFT,
     });
 
@@ -105,5 +115,41 @@ export class AuctionService {
    */
   static async getAllAuctions(): Promise<IAuction[]> {
     return await Auction.find().sort({ createdAt: -1 }).exec();
+  }
+
+  /**
+   * Обновить настройки аукциона (только черновик)
+   */
+  static async updateAuction(
+    auctionId: string,
+    updates: Partial<IAuction>
+  ): Promise<IAuction> {
+    const auction = await Auction.findById(auctionId);
+    if (!auction) {
+      throw new NotFoundError('Аукцион', auctionId);
+    }
+
+    if (auction.status !== AuctionStatus.DRAFT) {
+      throw new ConflictError('Нельзя изменить настройки активного или завершенного аукциона');
+    }
+
+    if (updates.name !== undefined) {
+      auction.name = updates.name;
+    }
+    if (updates.rewardAmount !== undefined) {
+      auction.rewardAmount = updates.rewardAmount;
+      auction.prizeRobux = updates.rewardAmount;
+    }
+    if (updates.winnersPerRound !== undefined) {
+      auction.winnersPerRound = updates.winnersPerRound;
+    }
+    if (updates.totalRounds !== undefined) {
+      auction.totalRounds = updates.totalRounds;
+    }
+    if (updates.roundDurationMinutes !== undefined) {
+      auction.roundDurationMinutes = updates.roundDurationMinutes;
+    }
+
+    return await auction.save();
   }
 }

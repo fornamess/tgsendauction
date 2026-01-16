@@ -44,7 +44,8 @@ function HomePage({ userId }: HomePageProps) {
       <div className="auction-info">
         <h2>{auction.name}</h2>
         <div className="prize-info">
-          Приз: <strong>{auction.prizeRobux} робуксов</strong> каждому из топ-100
+          Приз: <strong>{auction.rewardAmount ?? auction.prizeRobux} робуксов</strong> каждому из топ-
+          {auction.winnersPerRound ?? 100}
         </div>
       </div>
       <AuctionDisplay userId={userId} />

@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { RoundService } from '../services/RoundService';
 import { RankingService } from '../services/RankingService';
 import { Round, RoundStatus } from '../models/Round.model';
+import { Auction, AuctionStatus } from '../models/Auction.model';
 import { AuctionService } from '../services/AuctionService';
 import { logger } from '../utils/logger';
 
@@ -40,15 +41,50 @@ async function processRounds() {
       logger.info(`Завершение раунда ${round.number}`, { roundId: round._id.toString() });
 
       try {
+        const auction = await Auction.findById(round.auctionId);
+        if (!auction || auction.status !== AuctionStatus.ACTIVE) {
+          continue;
+        }
+
         // Завершить раунд
         await RoundService.endRound(round._id.toString());
 
+        const totalRounds = auction.totalRounds ?? 30;
+        const isLastRound = round.number >= totalRounds;
+        let nextRoundId: string | null = null;
+
+        // Создать следующий раунд, если это не последний
+        if (!isLastRound) {
+          const nextRound = await RoundService.createNextRound(auction, round.number);
+          if (nextRound) {
+            nextRoundId = nextRound._id.toString();
+            logger.info(`Создан новый раунд`, {
+              roundNumber: nextRound.number,
+              roundId: nextRoundId,
+              startTime: nextRound.startTime.toISOString(),
+              endTime: nextRound.endTime.toISOString(),
+            });
+          }
+        }
+
         // Обработать победителей
         logger.info(`Обработка победителей раунда ${round.number}`);
-        const winners = await RankingService.processRoundWinners(round._id.toString());
+        const winners = await RankingService.processRoundWinners(round._id.toString(), {
+          winnersPerRound: auction.winnersPerRound ?? 100,
+          rewardAmount: auction.rewardAmount ?? auction.prizeRobux ?? 1000,
+          nextRoundId,
+        });
         logger.info(`Найдено победителей в раунде ${round.number}`, { count: winners.length });
+
+        if (isLastRound) {
+          logger.info(`Аукцион завершен по лимиту раундов`, { auctionId: auction._id.toString() });
+          await AuctionService.endAuction(auction._id.toString());
+          await processRefunds(auction._id.toString());
+        }
       } catch (error: any) {
-        logger.error(`Ошибка при завершении раунда ${round.number}`, error, { roundId: round._id.toString() });
+        logger.error(`Ошибка при завершении раунда ${round.number}`, error, {
+          roundId: round._id.toString(),
+        });
       }
     }
   }
@@ -57,9 +93,9 @@ async function processRounds() {
   const currentAuction = await AuctionService.getCurrentAuction();
   const currentRound = await RoundService.getCurrentRound();
 
-  if (currentAuction && !currentRound) {
+  if (currentAuction && !currentRound && currentAuction.status === AuctionStatus.ACTIVE) {
     try {
-      const newRound = await RoundService.createNextRound();
+      const newRound = await RoundService.createNextRound(currentAuction);
       if (newRound) {
         logger.info(`Создан новый раунд`, {
           roundNumber: newRound.number,

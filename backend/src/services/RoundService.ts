@@ -1,41 +1,49 @@
 import { Round, IRound, RoundStatus } from '../models/Round.model';
-import { Auction, AuctionStatus } from '../models/Auction.model';
-import { NotFoundError } from '../utils/errors';
-
-const ROUND_DURATION_MS = 60 * 60 * 1000; // 60 минут
+import { Auction, AuctionStatus, IAuction } from '../models/Auction.model';
+import { NotFoundError, ConflictError } from '../utils/errors';
 
 export class RoundService {
   /**
    * Создать новый раунд для активного аукциона
    */
-  static async createNextRound(): Promise<IRound | null> {
+  static async createNextRound(
+    auctionOverride?: IAuction,
+    lastRoundNumber?: number
+  ): Promise<IRound | null> {
     // Найти активный аукцион
-    const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
+    const auction =
+      auctionOverride || (await Auction.findOne({ status: AuctionStatus.ACTIVE }));
     if (!auction) {
       return null; // Нет активного аукциона
     }
 
-    // Найти последний раунд этого аукциона
-    const lastRound = await Round.findOne({ auctionId: auction._id })
-      .sort({ number: -1 })
-      .exec();
-
-    const roundNumber = lastRound ? lastRound.number + 1 : 1;
-
-    // Вычислить время начала и окончания
-    const now = new Date();
-    const startTime = now;
-    const endTime = new Date(now.getTime() + ROUND_DURATION_MS);
-
-    // Если есть активный раунд, завершить его
+    // Проверить, нет ли активного раунда
     const activeRound = await Round.findOne({
       auctionId: auction._id,
       status: RoundStatus.ACTIVE,
     });
-
     if (activeRound) {
-      await this.endRound(activeRound._id.toString());
+      return null;
     }
+
+    // Найти последний раунд этого аукциона
+    const lastRound =
+      typeof lastRoundNumber === 'number'
+        ? { number: lastRoundNumber }
+        : await Round.findOne({ auctionId: auction._id }).sort({ number: -1 }).exec();
+
+    const roundNumber = lastRound ? lastRound.number + 1 : 1;
+    const totalRounds = auction.totalRounds ?? 30;
+    if (roundNumber > totalRounds) {
+      return null;
+    }
+
+    // Вычислить время начала и окончания
+    const now = new Date();
+    const startTime = now;
+    const durationMinutes = auction.roundDurationMinutes ?? 60;
+    const durationMs = durationMinutes * 60 * 1000;
+    const endTime = new Date(now.getTime() + durationMs);
 
     // Создать новый раунд
     const round = new Round({
@@ -117,5 +125,26 @@ export class RoundService {
       now >= round.startTime &&
       now <= round.endTime
     );
+  }
+
+  /**
+   * Продлить время раунда (для anti-sniping механизма)
+   */
+  static async extendRoundTime(roundId: string, extensionMs: number): Promise<IRound> {
+    const round = await Round.findById(roundId);
+    if (!round) {
+      throw new NotFoundError('Раунд', roundId);
+    }
+
+    if (round.status !== RoundStatus.ACTIVE) {
+      throw new ConflictError('Нельзя продлить неактивный раунд');
+    }
+
+    const now = new Date();
+    const currentEndTime = round.endTime.getTime();
+    const newEndTime = new Date(Math.max(currentEndTime, now.getTime()) + extensionMs);
+
+    round.endTime = newEndTime;
+    return await round.save();
   }
 }

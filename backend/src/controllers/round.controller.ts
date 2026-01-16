@@ -14,7 +14,12 @@ export class RoundController {
       return res.status(404).json({ error: 'Активный раунд не найден' });
     }
 
-    const top100 = await RankingService.getCurrentTop100(round._id.toString());
+    const auction = round.auctionId as any;
+    const winnersPerRound = auction?.winnersPerRound || 100;
+    const top100 = await RankingService.getCurrentTop100(
+      round._id.toString(),
+      winnersPerRound
+    );
 
     // Получить ставку текущего пользователя, если авторизован
     let userBet = null;
@@ -30,6 +35,7 @@ export class RoundController {
       top100,
       userBet,
       userRank,
+      winnersPerRound,
     });
   }
 
@@ -43,11 +49,14 @@ export class RoundController {
       throw new NotFoundError('Раунд', roundId);
     }
 
-    const top100 = await RankingService.getCurrentTop100(roundId);
+    const auction = round.auctionId as any;
+    const winnersPerRound = auction?.winnersPerRound || 100;
+    const top100 = await RankingService.getCurrentTop100(roundId, winnersPerRound);
 
     res.json({
       round,
       top100,
+      winnersPerRound,
     });
   }
 }
