@@ -8,8 +8,8 @@ services:
     container_name: tgsendauction-prod
     restart: unless-stopped
     ports:
-      - '80:80'      # Frontend (nginx)
-      - '3000:3000'  # Backend API
+      - '80:80' # Frontend (nginx)
+      - '3000:3000' # Backend API
       - '27017:27017' # MongoDB
     environment:
       NODE_ENV: production
@@ -20,7 +20,7 @@ services:
     volumes:
       - mongodb_data:/data/db
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:80']
       interval: 30s
       timeout: 10s
       retries: 3
