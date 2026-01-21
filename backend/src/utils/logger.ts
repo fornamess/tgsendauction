@@ -12,8 +12,8 @@ interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
-  context?: any;
-  error?: any;
+  context?: Record<string, unknown>;
+  error?: Record<string, unknown>;
 }
 
 class Logger {
@@ -25,21 +25,39 @@ class Logger {
     return currentIndex >= envIndex;
   }
 
-  private formatLog(level: LogLevel, message: string, context?: any, error?: any): LogEntry {
+  private formatLog(
+    level: LogLevel,
+    message: string,
+    context?: Record<string, unknown>,
+    error?: unknown
+  ): LogEntry {
+    const normalizedError: Record<string, unknown> | undefined =
+      error && error instanceof Error
+        ? {
+            message: error.message,
+            stack: error.stack,
+          }
+        : error && typeof error === 'object'
+        ? {
+            ...(error as Record<string, unknown>),
+          }
+        : undefined;
+
     return {
       timestamp: new Date().toISOString(),
       level,
       message,
       context,
-      error: error ? {
-        message: error.message,
-        stack: error.stack,
-        ...error,
-      } : undefined,
+      error: normalizedError,
     };
   }
 
-  private log(level: LogLevel, message: string, context?: any, error?: any) {
+  private log(
+    level: LogLevel,
+    message: string,
+    context?: Record<string, unknown>,
+    error?: unknown
+  ) {
     if (!this.shouldLog(level)) return;
 
     const logEntry = this.formatLog(level, message, context, error);
@@ -53,19 +71,19 @@ class Logger {
     }
   }
 
-  debug(message: string, context?: any) {
+  debug(message: string, context?: Record<string, unknown>) {
     this.log(LogLevel.DEBUG, message, context);
   }
 
-  info(message: string, context?: any) {
+  info(message: string, context?: Record<string, unknown>) {
     this.log(LogLevel.INFO, message, context);
   }
 
-  warn(message: string, context?: any) {
+  warn(message: string, context?: Record<string, unknown>) {
     this.log(LogLevel.WARN, message, context);
   }
 
-  error(message: string, error?: any, context?: any) {
+  error(message: string, error?: unknown, context?: Record<string, unknown>) {
     this.log(LogLevel.ERROR, message, context, error);
   }
 }

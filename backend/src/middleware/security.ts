@@ -7,16 +7,18 @@ import { logger } from '../utils/logger';
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
   if (req.body) {
     // Рекурсивная очистка строк от потенциально опасных символов
-    const sanitize = (obj: any): any => {
+    const sanitize = (obj: unknown): unknown => {
       if (typeof obj === 'string') {
         // Удаляем потенциально опасные символы
         return obj.replace(/[<>]/g, '');
-      } else if (Array.isArray(obj)) {
+      }
+      if (Array.isArray(obj)) {
         return obj.map(sanitize);
-      } else if (obj && typeof obj === 'object') {
-        const sanitized: any = {};
-        for (const key in obj) {
-          sanitized[key] = sanitize(obj[key]);
+      }
+      if (obj && typeof obj === 'object') {
+        const sanitized: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+          sanitized[key] = sanitize(value);
         }
         return sanitized;
       }
@@ -65,12 +67,14 @@ export function logSuspiciousActivity(req: Request, res: Response, next: NextFun
     return suspiciousPatterns.some(pattern => pattern.test(str));
   };
 
-  const checkObject = (obj: any): boolean => {
+  const checkObject = (obj: unknown): boolean => {
     if (typeof obj === 'string') {
       return checkString(obj);
-    } else if (Array.isArray(obj)) {
+    }
+    if (Array.isArray(obj)) {
       return obj.some(checkObject);
-    } else if (obj && typeof obj === 'object') {
+    }
+    if (obj && typeof obj === 'object') {
       return Object.values(obj).some(checkObject);
     }
     return false;

@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { User } from '../models/User.model';
 import mongoose from 'mongoose';
-import { validateTelegramInitData, isTelegramRequest } from './telegram';
+import { User, IUser } from '../models/User.model';
+import { validateTelegramInitData } from './telegram';
+import { logger } from './logger';
 
 /**
  * Простая система аутентификации через userId в заголовке или query
@@ -9,7 +10,7 @@ import { validateTelegramInitData, isTelegramRequest } from './telegram';
  */
 export interface AuthRequest extends Request {
   userId?: mongoose.Types.ObjectId;
-  user?: any;
+  user?: IUser;
 }
 
 /**
@@ -23,7 +24,7 @@ export async function authMiddleware(
 ) {
   try {
     let userId: string | undefined;
-    let telegramUser: any = null;
+    let telegramUser: ReturnType<typeof validateTelegramInitData> = null;
 
     // Проверяем Telegram Mini App initData
     const initData = req.headers['x-telegram-init-data'] as string;
@@ -71,7 +72,7 @@ export async function authMiddleware(
     let user = await User.findOne({ username: userId });
     if (!user) {
       // Создать нового пользователя
-      const userData: any = {
+      const userData: Partial<IUser> = {
         username: userId,
         balance: 0,
         robux: 0,
@@ -111,7 +112,10 @@ export async function authMiddleware(
     req.user = user;
     next();
   } catch (error) {
-    console.error('Ошибка в authMiddleware:', error);
+    logger.error('Ошибка в authMiddleware', error, {
+      url: req.url,
+      method: req.method,
+    });
     res.status(500).json({ error: 'Ошибка авторизации' });
   }
 }

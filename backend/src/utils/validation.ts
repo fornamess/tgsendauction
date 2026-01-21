@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Request, Response, NextFunction } from 'express';
 
 // Схемы валидации для API запросов
 export const createAuctionSchema = z.object({
@@ -79,13 +80,13 @@ export const updateAuctionSchema = z.object({
 });
 
 // Middleware для валидации
-export function validateRequest(schema: z.ZodSchema) {
-  return (req: any, res: any, next: any) => {
+export function validateRequest<T extends z.ZodTypeAny>(schema: T) {
+  return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validated = schema.parse(req.body || req.params);
-      req.validated = validated;
+      const validated = schema.parse(req.body || req.params) as z.infer<T>;
+      (req as Request & { validated: z.infer<T> }).validated = validated;
       next();
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           error: 'Ошибка валидации',

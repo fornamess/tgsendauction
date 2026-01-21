@@ -12,18 +12,19 @@ export class StatsController {
    * Получить статистику аукциона
    */
   static async getStats(req: AuthRequest, res: Response) {
-    const auction = await AuctionService.getCurrentAuction();
-    if (!auction) {
-      return res.status(404).json({ error: 'Активный аукцион не найден' });
-    }
+    try {
+      const auction = await AuctionService.getCurrentAuction();
+      if (!auction) {
+        return res.status(404).json({ error: 'Активный аукцион не найден' });
+      }
 
       // Статистика раундов
       const rounds = await Round.find({ auctionId: auction._id });
-      const activeRounds = rounds.filter((r: any) => r.status === 'active').length;
-      const endedRounds = rounds.filter((r: any) => r.status === 'ended').length;
+      const activeRounds = rounds.filter((r) => r.status === 'active').length;
+      const endedRounds = rounds.filter((r) => r.status === 'ended').length;
 
       // Статистика ставок
-      const roundIds = rounds.map((r: any) => r._id);
+      const roundIds = rounds.map((r) => r._id);
       const totalBets = await Bet.countDocuments({ roundId: { $in: roundIds } });
       const totalBetAmount = await Bet.aggregate([
         { $match: { roundId: { $in: roundIds } } },
@@ -55,7 +56,11 @@ export class StatsController {
         },
         users: {
           total: totalUsers,
-      },
-    });
+        },
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Ошибка получения статистики';
+      return res.status(500).json({ error: message });
+    }
   }
 }

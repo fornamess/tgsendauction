@@ -1,3 +1,5 @@
+import type { Request, Response, NextFunction } from 'express';
+
 /**
  * Простая реализация rate limiting без внешних зависимостей
  * Для production рекомендуется использовать redis-based rate limiting
@@ -42,7 +44,7 @@ export function createRateLimiter(
     stores[storeName] = {};
   }
 
-  return (req: any, res: any, next: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     const key = req.ip || req.connection.remoteAddress || 'unknown';
     const store = stores[storeName];
     const now = Date.now();

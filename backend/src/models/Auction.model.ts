@@ -8,7 +8,6 @@ export enum AuctionStatus {
 
 export interface IAuction extends Document {
   name: string;
-  prizeRobux?: number; // Deprecated: использовать rewardAmount
   rewardAmount: number; // Количество робуксов за приз
   winnersPerRound: number; // Количество победителей в раунде
   totalRounds: number; // Всего раундов в аукционе
@@ -16,6 +15,7 @@ export interface IAuction extends Document {
   status: AuctionStatus;
   createdAt: Date;
   endedAt?: Date;
+  refundsProcessed?: boolean;
 }
 
 const AuctionSchema = new Schema<IAuction>(
@@ -23,12 +23,6 @@ const AuctionSchema = new Schema<IAuction>(
     name: {
       type: String,
       required: true,
-    },
-    prizeRobux: {
-      type: Number,
-      required: false,
-      default: 1000,
-      min: 1,
     },
     rewardAmount: {
       type: Number,
@@ -62,6 +56,10 @@ const AuctionSchema = new Schema<IAuction>(
     },
     endedAt: {
       type: Date,
+    },
+    refundsProcessed: {
+      type: Boolean,
+      default: false,
     },
   },
   {

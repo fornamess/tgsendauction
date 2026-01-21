@@ -1,8 +1,9 @@
 import { Response } from 'express';
 import { AuctionService } from '../services/AuctionService';
 import { AuthRequest } from '../utils/auth';
-import { NotFoundError, ConflictError } from '../utils/errors';
-import { validateRequest, createAuctionSchema, updateAuctionSchema } from '../utils/validation';
+import { ConflictError, NotFoundError } from '../utils/errors';
+import { logger } from '../utils/logger';
+import { createAuctionSchema, updateAuctionSchema } from '../utils/validation';
 
 export class AuctionController {
   /**
@@ -14,8 +15,8 @@ export class AuctionController {
       // Возвращаем 200 с null, если аукцион не найден (это нормальная ситуация)
       // Фронтенд обработает это и покажет соответствующее сообщение
       return res.status(200).json(auction);
-    } catch (error: any) {
-      console.error('Ошибка получения текущего аукциона:', error);
+    } catch (error: unknown) {
+      logger.error('Ошибка получения текущего аукциона', error);
       return res.status(500).json({ error: 'Ошибка получения аукциона' });
     }
   }
@@ -36,8 +37,8 @@ export class AuctionController {
         roundDurationMinutes
       );
       res.status(201).json(auction);
-    } catch (error: any) {
-      if (error.message?.includes('активный аукцион')) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message?.includes('активный аукцион')) {
         throw new ConflictError(error.message);
       }
       throw error;
@@ -66,12 +67,13 @@ export class AuctionController {
       const auction = await AuctionService.endAuction(auctionId);
 
       // Обработать возвраты
-      const { processRefunds } = await import('../jobs/scheduler');
-      await processRefunds(auctionId);
+      const { processRefundsJob } = await import('../application/roundJobs');
+      await processRefundsJob(auctionId);
 
       res.json(auction);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || 'Ошибка завершения аукциона' });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Ошибка завершения аукциона';
+      res.status(500).json({ error: message });
     }
   }
 

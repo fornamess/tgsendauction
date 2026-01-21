@@ -1,6 +1,14 @@
+import mongoose from 'mongoose';
 import { Round, IRound, RoundStatus } from '../models/Round.model';
 import { Auction, AuctionStatus, IAuction } from '../models/Auction.model';
 import { NotFoundError, ConflictError } from '../utils/errors';
+import {
+  DEFAULT_TOTAL_ROUNDS,
+  DEFAULT_ROUND_DURATION_MINUTES,
+} from '../constants/auction';
+import { SimpleCache } from '../utils/simpleCache';
+
+const roundCache = new SimpleCache<IRound | null>(5 * 1000); // 5 секунд кэша
 
 export class RoundService {
   /**
@@ -33,7 +41,7 @@ export class RoundService {
         : await Round.findOne({ auctionId: auction._id }).sort({ number: -1 }).exec();
 
     const roundNumber = lastRound ? lastRound.number + 1 : 1;
-    const totalRounds = auction.totalRounds ?? 30;
+    const totalRounds = auction.totalRounds ?? DEFAULT_TOTAL_ROUNDS;
     if (roundNumber > totalRounds) {
       return null;
     }
@@ -41,7 +49,8 @@ export class RoundService {
     // Вычислить время начала и окончания
     const now = new Date();
     const startTime = now;
-    const durationMinutes = auction.roundDurationMinutes ?? 60;
+    const durationMinutes =
+      auction.roundDurationMinutes ?? DEFAULT_ROUND_DURATION_MINUTES;
     const durationMs = durationMinutes * 60 * 1000;
     const endTime = new Date(now.getTime() + durationMs);
 
@@ -61,10 +70,18 @@ export class RoundService {
    * Получить текущий активный раунд
    */
   static async getCurrentRound(auctionId?: string): Promise<IRound | null> {
-    let query: any = { status: RoundStatus.ACTIVE };
+    const cacheKey = auctionId ? `currentRound:${auctionId}` : 'currentRound:global';
+    const cached = roundCache.get(cacheKey);
+    if (cached !== null) {
+      return cached;
+    }
+
+    const query: { status: RoundStatus; auctionId?: mongoose.Types.ObjectId } = {
+      status: RoundStatus.ACTIVE,
+    };
 
     if (auctionId) {
-      query.auctionId = auctionId;
+      query.auctionId = new mongoose.Types.ObjectId(auctionId);
     } else {
       // Найти активный аукцион
       const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
@@ -74,9 +91,9 @@ export class RoundService {
       query.auctionId = auction._id;
     }
 
-    return await Round.findOne(query)
-      .populate('auctionId')
-      .exec();
+    const round = await Round.findOne(query).populate('auctionId').exec();
+    roundCache.set(cacheKey, round);
+    return round;
   }
 
   /**

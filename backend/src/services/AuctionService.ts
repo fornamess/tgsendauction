@@ -1,6 +1,16 @@
 import { Auction, IAuction, AuctionStatus } from '../models/Auction.model';
-import { Round, IRound, RoundStatus } from '../models/Round.model';
+import { Round, RoundStatus } from '../models/Round.model';
+import {
+  DEFAULT_REWARD_AMOUNT,
+  DEFAULT_WINNERS_PER_ROUND,
+  DEFAULT_TOTAL_ROUNDS,
+  DEFAULT_ROUND_DURATION_MINUTES,
+} from '../constants/auction';
 import { ConflictError, NotFoundError } from '../utils/errors';
+import { logger } from '../utils/logger';
+import { SimpleCache } from '../utils/simpleCache';
+
+const auctionCache = new SimpleCache<IAuction | null>(5 * 1000); // 5 секунд кэша
 
 export class AuctionService {
   /**
@@ -8,20 +18,23 @@ export class AuctionService {
    */
   static async createAuction(
     name: string,
-    rewardAmount: number = 1000,
-    winnersPerRound: number = 100,
-    totalRounds: number = 30,
-    roundDurationMinutes: number = 60
+    rewardAmount: number = DEFAULT_REWARD_AMOUNT,
+    winnersPerRound: number = DEFAULT_WINNERS_PER_ROUND,
+    totalRounds: number = DEFAULT_TOTAL_ROUNDS,
+    roundDurationMinutes: number = DEFAULT_ROUND_DURATION_MINUTES
   ): Promise<IAuction> {
-    // Проверить, нет ли активного аукциона
-    const activeAuction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
+    // Проверить, нет ли активного или черновика аукциона
+    const activeAuction = await Auction.findOne({
+      status: { $in: [AuctionStatus.ACTIVE, AuctionStatus.DRAFT] },
+    });
     if (activeAuction) {
-      throw new ConflictError('Уже есть активный аукцион. Завершите его перед созданием нового.');
+      throw new ConflictError(
+        `Уже есть ${activeAuction.status === 'active' ? 'активный' : 'черновик'} аукцион. Завершите или удалите его перед созданием нового.`
+      );
     }
 
     const auction = new Auction({
       name,
-      prizeRobux: rewardAmount,
       rewardAmount,
       winnersPerRound,
       totalRounds,
@@ -36,7 +49,15 @@ export class AuctionService {
    * Получить текущий активный аукцион
    */
   static async getCurrentAuction(): Promise<IAuction | null> {
-    return await Auction.findOne({ status: AuctionStatus.ACTIVE });
+    const cacheKey = 'currentAuction';
+    const cached = auctionCache.get(cacheKey);
+    if (cached !== null) {
+      return cached;
+    }
+
+    const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE }).exec();
+    auctionCache.set(cacheKey, auction);
+    return auction;
   }
 
   /**
@@ -63,16 +84,23 @@ export class AuctionService {
 
     auction.status = AuctionStatus.ACTIVE;
     const savedAuction = await auction.save();
+    auctionCache.clear();
 
     // Автоматически создать первый раунд при запуске аукциона
     try {
       const { RoundService } = await import('./RoundService');
       const firstRound = await RoundService.createNextRound();
       if (firstRound) {
-        console.log(`✅ Автоматически создан первый раунд #${firstRound.number} для аукциона "${savedAuction.name}"`);
+        logger.info('✅ Автоматически создан первый раунд', {
+          roundNumber: firstRound.number,
+          auctionId: savedAuction._id.toString(),
+          auctionName: savedAuction.name,
+        });
       }
     } catch (error) {
-      console.error('⚠️ Ошибка при создании первого раунда:', error);
+      logger.error('⚠️ Ошибка при создании первого раунда', error, {
+        auctionId: savedAuction._id.toString(),
+      });
       // Не бросаем ошибку, аукцион уже запущен, раунд создастся планировщиком
     }
 
@@ -100,7 +128,9 @@ export class AuctionService {
 
     auction.status = AuctionStatus.ENDED;
     auction.endedAt = new Date();
-    return await auction.save();
+    const saved = await auction.save();
+    auctionCache.clear();
+    return saved;
   }
 
   /**
@@ -138,7 +168,6 @@ export class AuctionService {
     }
     if (updates.rewardAmount !== undefined) {
       auction.rewardAmount = updates.rewardAmount;
-      auction.prizeRobux = updates.rewardAmount;
     }
     if (updates.winnersPerRound !== undefined) {
       auction.winnersPerRound = updates.winnersPerRound;
@@ -150,6 +179,8 @@ export class AuctionService {
       auction.roundDurationMinutes = updates.roundDurationMinutes;
     }
 
-    return await auction.save();
+    const saved = await auction.save();
+    auctionCache.clear();
+    return saved;
   }
 }

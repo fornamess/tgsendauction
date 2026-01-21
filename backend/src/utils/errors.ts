@@ -6,7 +6,7 @@ export class AppError extends Error {
     message: string,
     public statusCode: number = 500,
     public code?: string,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -15,7 +15,7 @@ export class AppError extends Error {
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, 400, 'VALIDATION_ERROR', details);
   }
 }
@@ -39,7 +39,7 @@ export class ForbiddenError extends AppError {
 }
 
 export class ConflictError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, 409, 'CONFLICT', details);
   }
 }
@@ -55,14 +55,29 @@ export class InsufficientFundsError extends AppError {
   }
 }
 
+import type { Request, Response, NextFunction } from 'express';
+import { logger } from './logger';
+
+type MongoErrorLike = {
+  name?: string;
+  code?: number;
+  keyPattern?: Record<string, unknown>;
+  errors?: unknown;
+};
+
 /**
  * Middleware для обработки ошибок
  */
-export function errorHandler(err: any, req: any, res: any, next: any) {
+export function errorHandler(
+  err: unknown,
+  req: Request,
+  res: Response,
+  _next: NextFunction
+) {
+  const error = err instanceof Error ? err : new Error(String(err));
+
   // Логирование ошибки
-  console.error('❌ Ошибка:', {
-    message: err.message,
-    stack: err.stack,
+  logger.error('❌ Ошибка:', error, {
     url: req.url,
     method: req.method,
     body: req.body,
@@ -70,25 +85,27 @@ export function errorHandler(err: any, req: any, res: any, next: any) {
   });
 
   // Если это наша кастомная ошибка
-  if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
-      error: err.message,
-      code: err.code,
-      details: err.details,
+  if (error instanceof AppError) {
+    return res.status(error.statusCode).json({
+      error: error.message,
+      code: error.code,
+      details: error.details,
     });
   }
 
   // Ошибки валидации MongoDB
-  if (err.name === 'ValidationError') {
+  const mongoError = err as MongoErrorLike;
+
+  if (mongoError.name === 'ValidationError') {
     return res.status(400).json({
       error: 'Ошибка валидации данных',
-      details: err.errors,
+      details: mongoError.errors,
     });
   }
 
   // Ошибки дубликата (unique index)
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyPattern || {})[0];
+  if (mongoError.code === 11000) {
+    const field = Object.keys(mongoError.keyPattern || {})[0];
     return res.status(409).json({
       error: `Дубликат: ${field} уже существует`,
       code: 'DUPLICATE',
@@ -96,7 +113,7 @@ export function errorHandler(err: any, req: any, res: any, next: any) {
   }
 
   // Ошибки кастинга ObjectId
-  if (err.name === 'CastError') {
+  if (mongoError.name === 'CastError') {
     return res.status(400).json({
       error: 'Неверный формат ID',
       code: 'INVALID_ID',
@@ -105,7 +122,10 @@ export function errorHandler(err: any, req: any, res: any, next: any) {
 
   // Общая ошибка сервера
   return res.status(500).json({
-    error: process.env.NODE_ENV === 'production' ? 'Внутренняя ошибка сервера' : err.message,
+    error:
+      process.env.NODE_ENV === 'production'
+        ? 'Внутренняя ошибка сервера'
+        : error.message,
     code: 'INTERNAL_ERROR',
   });
 }

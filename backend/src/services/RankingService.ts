@@ -6,6 +6,7 @@ import { TransactionType } from '../models/Transaction.model';
 import { IWinner, Winner } from '../models/Winner.model';
 import { NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { DEFAULT_REWARD_AMOUNT, DEFAULT_WINNERS_PER_ROUND, MAX_TOP_BETS_LIMIT } from '../constants/auction';
 import { BetService } from './BetService';
 import { RoundService } from './RoundService';
 import { TransactionService } from './TransactionService';
@@ -13,7 +14,6 @@ import { TransactionService } from './TransactionService';
 export class RankingService {
   /**
    * Определить победителей раунда (топ-100) и начислить призы
-   * Работает без транзакций (для standalone MongoDB)
    */
   static async processRoundWinners(
     roundId: string,
@@ -23,8 +23,6 @@ export class RankingService {
       nextRoundId?: string | null;
     }
   ): Promise<IWinner[]> {
-    // Не используем транзакции в standalone MongoDB
-    // Операции выполняются последовательно
 
     const round = await Round.findById(roundId);
     if (!round) {
@@ -36,9 +34,10 @@ export class RankingService {
     if (!auction) {
       throw new NotFoundError('Аукцион', round.auctionId.toString());
     }
-    const winnersPerRound = options?.winnersPerRound ?? auction.winnersPerRound ?? 100;
+    const winnersPerRound =
+      options?.winnersPerRound ?? auction.winnersPerRound ?? DEFAULT_WINNERS_PER_ROUND;
     const rewardAmount =
-      options?.rewardAmount ?? auction.rewardAmount ?? auction.prizeRobux ?? 1000;
+      options?.rewardAmount ?? auction.rewardAmount ?? DEFAULT_REWARD_AMOUNT;
 
     // Получить топ-100 ставок (уникальные пользователи по самой большой ставке)
     // Сначала группируем по пользователю, беря максимальную ставку
@@ -71,18 +70,19 @@ export class RankingService {
         roundId: round._id,
         betId: bet._id,
         rank,
-        prizeRobux: rewardAmount,
+        prizeRobux: rewardAmount, // Сохраняем для истории, но можно переименовать в rewardAmount в будущем
       });
       await winner.save();
 
-      // Начислить приз (робуксы) - без session, без транзакций
+      // Начислить приз (робуксы)
       await TransactionService.createTransaction(
         bet.userId,
         TransactionType.PRIZE,
         rewardAmount,
         round._id,
         bet._id,
-        `Приз за ${rank} место в раунде ${round.number}`
+        `Приз за ${rank} место в раунде ${round.number}`,
+        `prize:${round._id.toString()}:${bet.userId.toString()}:${rank}`
       );
 
       winners.push(winner);
@@ -109,16 +109,16 @@ export class RankingService {
         }
       }
 
-      // Перенести каждую ставку (без session - без транзакций)
+      // Перенести каждую ставку
       let transferSuccess = 0;
       let transferErrors = 0;
       for (const bet of losingUsersMap.values()) {
         try {
           await BetService.transferBetToNextRound(bet.userId, bet.roundId, nextRound._id);
           transferSuccess++;
-        } catch (error: any) {
+        } catch (error: unknown) {
           transferErrors++;
-          logger.error(`Ошибка переноса ставки пользователя ${bet.userId}`, error, {
+          logger.error(`Ошибка переноса ставки пользователя ${bet.userId}`, error instanceof Error ? error : new Error(String(error)), {
             userId: bet.userId.toString(),
             fromRoundId: bet.roundId.toString(),
             toRoundId: nextRound._id.toString(),
@@ -140,7 +140,10 @@ export class RankingService {
   /**
    * Получить топ-100 текущего раунда
    */
-  static async getCurrentTop100(roundId: string, limit: number = 100): Promise<any[]> {
+  static async getCurrentTop100(
+    roundId: string,
+    limit: number = MAX_TOP_BETS_LIMIT
+  ): Promise<Array<{ rank: number; bet: ReturnType<typeof Bet.prototype.toObject> }>> {
     // Оптимизация: выбираем только нужные поля и сортируем на уровне БД
     const bets = await Bet.find({ roundId })
       .select('userId amount createdAt')

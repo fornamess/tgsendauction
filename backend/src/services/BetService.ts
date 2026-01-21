@@ -3,6 +3,7 @@ import { Bet, IBet } from '../models/Bet.model';
 import { Round, RoundStatus } from '../models/Round.model';
 import { TransactionType } from '../models/Transaction.model';
 import { User } from '../models/User.model';
+import { SNIPING_THRESHOLD_MS, EXTENSION_TIME_MS, MAX_TOP_BETS_LIMIT } from '../constants/auction';
 import {
   ConflictError,
   InsufficientFundsError,
@@ -16,16 +17,13 @@ import { TransactionService } from './TransactionService';
 export class BetService {
   /**
    * Разместить или повысить ставку
-   * Работает без транзакций (для standalone MongoDB)
    */
   static async placeBet(
     userId: mongoose.Types.ObjectId,
     roundId: mongoose.Types.ObjectId,
     amount: number,
-    session?: mongoose.ClientSession
+    idempotencyKey?: string
   ): Promise<IBet> {
-    // Не используем транзакции в standalone MongoDB
-    // Полагаемся на уникальный индекс userId+roundId для предотвращения дубликатов
 
     // Проверить, что раунд активен
     let round = await Round.findById(roundId);
@@ -45,17 +43,15 @@ export class BetService {
     // Anti-sniping механизм: продление времени для первого раунда
     if (round.number === 1) {
       const timeUntilEnd = round.endTime.getTime() - now.getTime();
-      const SNIPING_THRESHOLD = 10 * 1000; // 10 секунд
-      const EXTENSION_TIME = 30 * 1000; // 30 секунд
 
-      if (timeUntilEnd <= SNIPING_THRESHOLD && timeUntilEnd > 0) {
-        await RoundService.extendRoundTime(roundId.toString(), EXTENSION_TIME);
+      if (timeUntilEnd <= SNIPING_THRESHOLD_MS && timeUntilEnd > 0) {
+        await RoundService.extendRoundTime(roundId.toString(), EXTENSION_TIME_MS);
         // Обновить round для дальнейшей проверки
         const updatedRound = await Round.findById(roundId);
         if (updatedRound) {
           round = updatedRound;
           logger.info(
-            `⏰ Anti-sniping: раунд #${round.number} продлен на ${EXTENSION_TIME / 1000} секунд`,
+            `⏰ Anti-sniping: раунд #${round.number} продлен на ${EXTENSION_TIME_MS / 1000} секунд`,
             {
               roundId: roundId.toString(),
               timeUntilEnd: timeUntilEnd / 1000,
@@ -95,8 +91,6 @@ export class BetService {
       existingBet.version = (existingBet.version || 0) + 1;
       bet = await existingBet.save();
 
-      // Создать транзакцию на разницу (без session - без транзакций)
-      // Проверяем, что round все еще существует
       if (!round) {
         throw new NotFoundError('Раунд', roundId.toString());
       }
@@ -106,7 +100,8 @@ export class BetService {
         difference,
         roundId,
         bet._id,
-        `Повышение ставки в раунде ${round.number}`
+        `Повышение ставки в раунде ${round.number}`,
+        idempotencyKey ? `bet:increase:${idempotencyKey}` : undefined
       );
     } else {
       // Новая ставка
@@ -128,8 +123,6 @@ export class BetService {
       });
       bet = await bet.save();
 
-      // Создать транзакцию (без session - без транзакций)
-      // Проверяем, что round все еще существует
       if (!round) {
         throw new NotFoundError('Раунд', roundId.toString());
       }
@@ -139,7 +132,8 @@ export class BetService {
         amount,
         roundId,
         bet._id,
-        `Ставка в раунде ${round.number}`
+        `Ставка в раунде ${round.number}`,
+        idempotencyKey ? `bet:new:${idempotencyKey}` : undefined
       );
     }
 
@@ -159,7 +153,10 @@ export class BetService {
   /**
    * Получить топ ставок раунда
    */
-  static async getTopBets(roundId: mongoose.Types.ObjectId, limit: number = 100): Promise<IBet[]> {
+  static async getTopBets(
+    roundId: mongoose.Types.ObjectId,
+    limit: number = MAX_TOP_BETS_LIMIT
+  ): Promise<IBet[]> {
     return await Bet.find({ roundId }).sort({ amount: -1 }).limit(limit).populate('userId').exec();
   }
 
@@ -172,15 +169,12 @@ export class BetService {
 
   /**
    * Перенести ставку в следующий раунд (для проигравших)
-   * Работает без транзакций (для standalone MongoDB)
    */
   static async transferBetToNextRound(
     userId: mongoose.Types.ObjectId,
     fromRoundId: mongoose.Types.ObjectId,
-    toRoundId: mongoose.Types.ObjectId,
-    session?: mongoose.ClientSession
+    toRoundId: mongoose.Types.ObjectId
   ): Promise<IBet> {
-    // Не используем транзакции в standalone MongoDB
 
     // Найти ставку в старом раунде
     const oldBet = await Bet.findOne({ userId, roundId: fromRoundId });
@@ -222,7 +216,7 @@ export class BetService {
     userId: mongoose.Types.ObjectId,
     auctionId?: mongoose.Types.ObjectId
   ): Promise<IBet[]> {
-    let query: any = { userId };
+    const query: { userId: mongoose.Types.ObjectId; roundId?: { $in: mongoose.Types.ObjectId[] } } = { userId };
 
     if (auctionId) {
       // Найти все раунды аукциона

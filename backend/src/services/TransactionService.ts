@@ -1,13 +1,13 @@
 import mongoose from 'mongoose';
 import { ITransaction, Transaction, TransactionType } from '../models/Transaction.model';
 import { User } from '../models/User.model';
-import { NotFoundError, InsufficientFundsError } from '../utils/errors';
+import { IdempotentRequest, IdempotentStatus } from '../models/IdempotentRequest.model';
+import { ConflictError, NotFoundError, InsufficientFundsError } from '../utils/errors';
 
 export class TransactionService {
   /**
    * Создать транзакцию и обновить баланс пользователя
-   * Использует транзакции только если передана session (для критичных операций типа BET)
-   * Для простых операций (DEPOSIT, REFUND, PRIZE) транзакции не используются
+   * Использует атомарные операции MongoDB для безопасности
    */
   static async createTransaction(
     userId: mongoose.Types.ObjectId,
@@ -16,33 +16,85 @@ export class TransactionService {
     roundId?: mongoose.Types.ObjectId,
     betId?: mongoose.Types.ObjectId,
     description?: string,
-    session?: mongoose.ClientSession
+    idempotencyKey?: string
   ): Promise<ITransaction> {
-    // Не используем транзакции в standalone MongoDB
-    // Используем атомарные операции MongoDB ($inc) для безопасности
+    // Если передан idempotencyKey, сначала проверяем предыдущий результат
+    if (idempotencyKey) {
+      const existing = await IdempotentRequest.findOne({
+        key: idempotencyKey,
+        type,
+      }).exec();
+
+      if (existing) {
+        if (existing.status === IdempotentStatus.SUCCEEDED && existing.resultId) {
+          const existingTx = await Transaction.findById(existing.resultId).exec();
+          if (existingTx) {
+            return existingTx;
+          }
+        }
+
+        if (existing.status === IdempotentStatus.PENDING) {
+          throw new ConflictError('Операция уже обрабатывается, повторите запрос позже.');
+        }
+      }
+    }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    // Храним ссылку на документ идемпотентности, если он используется
+    let idempotentDoc: InstanceType<typeof IdempotentRequest> | null = null;
 
     try {
+      if (idempotencyKey) {
+        const doc = await IdempotentRequest.findOneAndUpdate(
+          { key: idempotencyKey, type },
+          {
+            $setOnInsert: {
+              status: IdempotentStatus.PENDING,
+            },
+          },
+          {
+            new: true,
+            upsert: true,
+            session,
+          }
+        );
+        idempotentDoc = doc;
+
+        if (doc.status === IdempotentStatus.SUCCEEDED && doc.resultId) {
+          const existingTx = await Transaction.findById(doc.resultId).session(session);
+          if (existingTx) {
+            await session.commitTransaction();
+            session.endSession();
+            return existingTx;
+          }
+        }
+
+        if (doc.status === IdempotentStatus.PENDING && !doc.isNew) {
+          throw new ConflictError('Операция уже обрабатывается, повторите запрос позже.');
+        }
+      }
+
       // Обновить баланс пользователя в зависимости от типа транзакции
-      let updateField: any = {};
+      let updateField: { $inc: { balance?: number; robux?: number } };
 
       switch (type) {
         case TransactionType.BET:
         case TransactionType.DEPOSIT:
-          // Для ставки и пополнения изменяем balance
           updateField = { $inc: { balance: type === TransactionType.BET ? -amount : amount } };
           break;
         case TransactionType.REFUND:
           updateField = { $inc: { balance: amount } };
           break;
         case TransactionType.PRIZE:
-          // Для приза добавляем робуксы
           updateField = { $inc: { robux: amount } };
           break;
       }
 
       // Проверить баланс перед списанием (для BET)
       if (type === TransactionType.BET) {
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).session(session);
         if (!user) {
           throw new NotFoundError('Пользователь', userId.toString());
         }
@@ -52,32 +104,27 @@ export class TransactionService {
       }
 
       // Обновить баланс/робуксы пользователя атомарной операцией
-      // Используем findOneAndUpdate с условием для предотвращения отрицательного баланса
       let userResult;
       if (type === TransactionType.BET) {
-        // Для ставки используем условие, чтобы баланс не стал отрицательным
         userResult = await User.findOneAndUpdate(
-          { _id: userId, balance: { $gte: amount } }, // Условие: баланс >= суммы
+          { _id: userId, balance: { $gte: amount } },
           updateField,
-          { new: true }
+          { new: true, session }
         );
         if (!userResult) {
-          // Проверяем, почему не обновилось
-          const user = await User.findById(userId);
+          const user = await User.findById(userId).session(session);
           if (!user) {
             throw new NotFoundError('Пользователь', userId.toString());
           }
           throw new InsufficientFundsError(amount, user.balance);
         }
       } else {
-        // Для других операций просто обновляем
-        userResult = await User.findByIdAndUpdate(userId, updateField, { new: true });
+        userResult = await User.findByIdAndUpdate(userId, updateField, { new: true, session });
         if (!userResult) {
           throw new NotFoundError('Пользователь', userId.toString());
         }
       }
 
-      // Создать транзакцию
       const transaction = new Transaction({
         userId,
         type,
@@ -87,10 +134,33 @@ export class TransactionService {
         description,
       });
 
-      await transaction.save();
+      await transaction.save({ session });
+
+      if (idempotentDoc) {
+        idempotentDoc.status = IdempotentStatus.SUCCEEDED;
+        idempotentDoc.resultType = 'Transaction';
+        idempotentDoc.resultId = transaction._id;
+        await idempotentDoc.save({ session });
+      }
+
+      await session.commitTransaction();
+      session.endSession();
 
       return transaction;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      await session.abortTransaction();
+      session.endSession();
+
+      if (idempotencyKey) {
+        await IdempotentRequest.updateOne(
+          { key: idempotencyKey, type },
+          {
+            status: IdempotentStatus.FAILED,
+            errorMessage: error instanceof Error ? error.message : String(error),
+          }
+        ).exec();
+      }
+
       throw error;
     }
   }
