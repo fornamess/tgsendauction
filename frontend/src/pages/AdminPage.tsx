@@ -40,28 +40,43 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
       // Пробуем сначала получить активный аукцион
       try {
         const currentResponse = await api.get('/api/auction/current');
-        setAuction(currentResponse.data);
-        setEditAuctionName(currentResponse.data.name);
-        setEditAuctionReward(currentResponse.data.rewardAmount ?? currentResponse.data.prizeRobux ?? 1000);
-        setEditWinnersPerRound(currentResponse.data.winnersPerRound ?? 100);
-        setEditTotalRounds(currentResponse.data.totalRounds ?? 30);
-        setEditRoundDuration(currentResponse.data.roundDurationMinutes ?? 60);
-        return;
+        if (currentResponse.data) {
+          setAuction(currentResponse.data);
+          setEditAuctionName(currentResponse.data.name);
+          setEditAuctionReward(currentResponse.data.rewardAmount ?? currentResponse.data.prizeRobux ?? 1000);
+          setEditWinnersPerRound(currentResponse.data.winnersPerRound ?? 100);
+          setEditTotalRounds(currentResponse.data.totalRounds ?? 30);
+          setEditRoundDuration(currentResponse.data.roundDurationMinutes ?? 60);
+          return;
+        }
       } catch (err) {
-        // Если нет активного, получаем все аукционы и берем последний
+        // Игнорируем ошибку, проверяем дальше
+      }
+
+      // Если нет активного, получаем все аукционы и ищем черновик или активный
+      try {
         const allResponse = await api.get('/api/auction/all');
         const auctions = allResponse.data;
         if (auctions && auctions.length > 0) {
-          // Берем последний созданный аукцион (черновик или активный)
-          setAuction(auctions[0]);
-          setEditAuctionName(auctions[0].name);
-          setEditAuctionReward(auctions[0].rewardAmount ?? auctions[0].prizeRobux ?? 1000);
-          setEditWinnersPerRound(auctions[0].winnersPerRound ?? 100);
-          setEditTotalRounds(auctions[0].totalRounds ?? 30);
-          setEditRoundDuration(auctions[0].roundDurationMinutes ?? 60);
-          return;
+          // Ищем активный или черновик аукцион (не завершенный)
+          const activeOrDraft = auctions.find(
+            (a: Auction) => a.status === 'active' || a.status === 'draft'
+          );
+          if (activeOrDraft) {
+            setAuction(activeOrDraft);
+            setEditAuctionName(activeOrDraft.name);
+            setEditAuctionReward(activeOrDraft.rewardAmount ?? activeOrDraft.prizeRobux ?? 1000);
+            setEditWinnersPerRound(activeOrDraft.winnersPerRound ?? 100);
+            setEditTotalRounds(activeOrDraft.totalRounds ?? 30);
+            setEditRoundDuration(activeOrDraft.roundDurationMinutes ?? 60);
+            return;
+          }
         }
+      } catch (err) {
+        // Игнорируем ошибку
       }
+
+      // Если нет активного или черновика, показываем форму создания
       setAuction(null);
     } catch (err) {
       console.error('Ошибка получения аукциона:', err);
@@ -202,6 +217,11 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
                 ✅ Аукцион активен! Участники могут делать ставки на главной странице.
               </div>
             )}
+            {auction.status === 'ended' && (
+              <div className="status-hint">
+                ⚠️ Аукцион завершен. Вы можете создать новый аукцион ниже.
+              </div>
+            )}
           </div>
           <div className="auction-actions">
             {auction.status === 'draft' && (
@@ -286,6 +306,80 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
                 {loading ? 'Сохранение...' : 'Сохранить настройки'}
               </button>
             </form>
+          )}
+          {auction.status === 'ended' && (
+            <div className="create-auction" style={{ marginTop: '30px', paddingTop: '30px', borderTop: '1px solid #444' }}>
+              <h2>Создать новый аукцион</h2>
+          <form onSubmit={handleCreateAuction}>
+            <div className="form-group">
+              <label>
+                Название аукциона:
+                <input
+                  type="text"
+                  value={newAuctionName}
+                  onChange={(e) => setNewAuctionName(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </label>
+            </div>
+            <div className="form-group">
+              <label>
+                Приз (робуксов):
+                <input
+                  type="number"
+                  value={newAuctionReward}
+                  onChange={(e) => setNewAuctionReward(Number(e.target.value))}
+                  min="1"
+                  required
+                  disabled={loading}
+                />
+              </label>
+            </div>
+            <div className="form-group">
+              <label>
+                Победителей в раунде:
+                <input
+                  type="number"
+                  value={newWinnersPerRound}
+                  onChange={(e) => setNewWinnersPerRound(Number(e.target.value))}
+                  min="1"
+                  required
+                  disabled={loading}
+                />
+              </label>
+            </div>
+            <div className="form-group">
+              <label>
+                Всего раундов:
+                <input
+                  type="number"
+                  value={newTotalRounds}
+                  onChange={(e) => setNewTotalRounds(Number(e.target.value))}
+                  min="1"
+                  required
+                  disabled={loading}
+                />
+              </label>
+            </div>
+            <div className="form-group">
+              <label>
+                Длительность раунда (мин.):
+                <input
+                  type="number"
+                  value={newRoundDuration}
+                  onChange={(e) => setNewRoundDuration(Number(e.target.value))}
+                  min="1"
+                  required
+                  disabled={loading}
+                />
+              </label>
+            </div>
+            <button type="submit" disabled={loading}>
+              {loading ? 'Создание...' : 'Создать аукцион'}
+            </button>
+          </form>
+            </div>
           )}
         </div>
       ) : (
