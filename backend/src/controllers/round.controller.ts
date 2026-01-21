@@ -1,9 +1,11 @@
 import { Response } from 'express';
-import { IAuction } from '../models/Auction.model';
+import { IAuction, Auction, AuctionStatus } from '../models/Auction.model';
 import { RoundService } from '../services/RoundService';
 import { RankingService } from '../services/RankingService';
+import { AuctionService } from '../services/AuctionService';
 import { AuthRequest } from '../utils/auth';
-import { NotFoundError } from '../utils/errors';
+import { NotFoundError, ConflictError } from '../utils/errors';
+import { logger } from '../utils/logger';
 
 export class RoundController {
   /**
@@ -70,6 +72,123 @@ export class RoundController {
         throw error;
       }
       const message = error instanceof Error ? error.message : 'Ошибка получения раунда';
+      return res.status(500).json({ error: message });
+    }
+  }
+
+  /**
+   * Завершить текущий раунд преждевременно (для демонстрации)
+   */
+  static async endCurrent(req: AuthRequest, res: Response) {
+    try {
+      const round = await RoundService.getCurrentRound();
+      if (!round) {
+        throw new NotFoundError('Активный раунд', '');
+      }
+
+      const auction = await Auction.findById(round.auctionId);
+      if (!auction || auction.status !== AuctionStatus.ACTIVE) {
+        throw new ConflictError('Аукцион не активен');
+      }
+
+      logger.info(`Ручное завершение раунда ${round.number}`, {
+        roundId: round._id.toString(),
+        auctionId: auction._id.toString(),
+      });
+
+      await RoundService.endRound(round._id.toString());
+
+      const totalRounds = auction.totalRounds ?? 30;
+      const isLastRound = round.number >= totalRounds;
+      let nextRoundId: string | null = null;
+
+      if (!isLastRound) {
+        const nextRound = await RoundService.createNextRound(auction, round.number);
+        if (nextRound) {
+          nextRoundId = nextRound._id.toString();
+          logger.info(`Создан новый раунд`, {
+            roundNumber: nextRound.number,
+            roundId: nextRoundId,
+          });
+        }
+      }
+
+      logger.info(`Обработка победителей раунда ${round.number}`);
+      const winners = await RankingService.processRoundWinners(round._id.toString(), {
+        winnersPerRound: auction.winnersPerRound ?? 100,
+        rewardAmount: auction.rewardAmount ?? 1000,
+        nextRoundId,
+      });
+      logger.info(`Найдено победителей в раунде ${round.number}`, { count: winners.length });
+
+      if (isLastRound) {
+        logger.info(`Аукцион завершен по лимиту раундов`, {
+          auctionId: auction._id.toString(),
+        });
+        await AuctionService.endAuction(auction._id.toString());
+        const { processRefundsJob } = await import('../application/roundJobs');
+        await processRefundsJob(auction._id.toString());
+      }
+
+      res.json({
+        message: `Раунд ${round.number} завершен`,
+        winnersCount: winners.length,
+        isLastRound,
+        nextRoundId,
+      });
+    } catch (error: unknown) {
+      if (error instanceof NotFoundError || error instanceof ConflictError) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : 'Ошибка завершения раунда';
+      logger.error('Ошибка завершения раунда', error);
+      return res.status(500).json({ error: message });
+    }
+  }
+
+  /**
+   * Создать следующий раунд вручную (если нет активного)
+   */
+  static async createNext(req: AuthRequest, res: Response) {
+    try {
+      const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
+      if (!auction) {
+        throw new NotFoundError('Активный аукцион', '');
+      }
+
+      const activeRound = await RoundService.getCurrentRound();
+      if (activeRound) {
+        throw new ConflictError('Уже есть активный раунд. Сначала завершите текущий.');
+      }
+
+      const lastRound = await RoundService.getRoundsByAuction(auction._id.toString());
+      const lastRoundNumber = lastRound.length > 0 ? lastRound[lastRound.length - 1].number : 0;
+      const totalRounds = auction.totalRounds ?? 30;
+
+      if (lastRoundNumber >= totalRounds) {
+        throw new ConflictError('Достигнут лимит раундов для этого аукциона');
+      }
+
+      const nextRound = await RoundService.createNextRound(auction, lastRoundNumber);
+      if (!nextRound) {
+        throw new ConflictError('Не удалось создать раунд');
+      }
+
+      logger.info(`Ручное создание раунда ${nextRound.number}`, {
+        roundId: nextRound._id.toString(),
+        auctionId: auction._id.toString(),
+      });
+
+      res.json({
+        message: `Раунд ${nextRound.number} создан`,
+        round: nextRound,
+      });
+    } catch (error: unknown) {
+      if (error instanceof NotFoundError || error instanceof ConflictError) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : 'Ошибка создания раунда';
+      logger.error('Ошибка создания раунда', error);
       return res.status(500).json({ error: message });
     }
   }

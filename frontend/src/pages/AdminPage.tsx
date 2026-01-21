@@ -17,8 +17,17 @@ interface AdminPageProps {
   userId: string;
 }
 
+interface Round {
+  _id: string;
+  number: number;
+  status: string;
+  startTime: string;
+  endTime: string;
+}
+
 function AdminPage({ userId: _userId }: AdminPageProps) {
   const [auction, setAuction] = useState<Auction | null>(null);
+  const [currentRound, setCurrentRound] = useState<Round | null>(null);
   const [loading, setLoading] = useState(false);
   const [newAuctionName, setNewAuctionName] = useState('');
   const [newAuctionReward, setNewAuctionReward] = useState(1000);
@@ -34,6 +43,14 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
   useEffect(() => {
     fetchAuction();
   }, []);
+
+  useEffect(() => {
+    if (auction?.status === 'active') {
+      fetchCurrentRound();
+    } else {
+      setCurrentRound(null);
+    }
+  }, [auction?.status, auction?._id]);
 
   const fetchAuction = async () => {
     try {
@@ -124,6 +141,7 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
     try {
       await api.post(`/api/auction/${auction._id}/start`);
       await fetchAuction();
+      await fetchCurrentRound();
       alert(
         '✅ Аукцион успешно запущен! Первый раунд создан автоматически. Теперь можно участвовать в аукционе на главной странице.'
       );
@@ -145,6 +163,7 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
     try {
       await api.post(`/api/auction/${auction._id}/end`);
       await fetchAuction();
+      setCurrentRound(null);
       alert('Аукцион завершен! Средства возвращены проигравшим.');
     } catch (err: any) {
       alert(err.response?.data?.error || 'Ошибка завершения аукциона');
@@ -169,6 +188,61 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
       alert('✅ Настройки аукциона обновлены');
     } catch (err: any) {
       alert(`❌ Ошибка обновления: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCurrentRound = async () => {
+    try {
+      const response = await api.get('/api/round/current');
+      if (response.data?.round) {
+        setCurrentRound(response.data.round);
+      } else {
+        setCurrentRound(null);
+      }
+    } catch (err) {
+      setCurrentRound(null);
+    }
+  };
+
+  const handleEndCurrentRound = async () => {
+    if (!currentRound) return;
+    if (
+      !confirm(
+        `Вы уверены, что хотите завершить раунд ${currentRound.number} преждевременно? Это обработает победителей и создаст следующий раунд (если это не последний).`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await api.post('/api/round/current/end');
+      alert(
+        `✅ Раунд ${currentRound.number} завершен! Победителей: ${response.data.winnersCount || 0}. ${
+          response.data.isLastRound
+            ? 'Аукцион завершен.'
+            : `Создан раунд ${currentRound.number + 1}.`
+        }`
+      );
+      await fetchAuction();
+      await fetchCurrentRound();
+    } catch (err: any) {
+      alert(`❌ Ошибка завершения раунда: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateNextRound = async () => {
+    if (!auction) return;
+    setLoading(true);
+    try {
+      const response = await api.post('/api/round/next');
+      alert(`✅ Раунд ${response.data.round.number} успешно создан!`);
+      await fetchCurrentRound();
+    } catch (err: any) {
+      alert(`❌ Ошибка создания раунда: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoading(false);
     }
@@ -223,6 +297,20 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
               </div>
             )}
           </div>
+
+          {auction.status === 'active' && currentRound && (
+            <div className="round-info" style={{ marginTop: '20px', padding: '15px', backgroundColor: '#2a2a2a', borderRadius: '8px' }}>
+              <h3>Текущий раунд #{currentRound.number}</h3>
+              <div style={{ marginTop: '10px', fontSize: '14px', color: '#aaa' }}>
+                <div>Начало: {new Date(currentRound.startTime).toLocaleString('ru-RU')}</div>
+                <div>Окончание: {new Date(currentRound.endTime).toLocaleString('ru-RU')}</div>
+                <div style={{ marginTop: '5px' }}>
+                  Осталось: {Math.max(0, Math.floor((new Date(currentRound.endTime).getTime() - Date.now()) / 1000 / 60))} мин.
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="auction-actions">
             {auction.status === 'draft' && (
               <button onClick={handleStartAuction} disabled={loading}>
@@ -230,9 +318,28 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
               </button>
             )}
             {auction.status === 'active' && (
-              <button onClick={handleEndAuction} disabled={loading}>
-                Завершить аукцион
-              </button>
+              <>
+                {currentRound ? (
+                  <button
+                    onClick={handleEndCurrentRound}
+                    disabled={loading}
+                    style={{ backgroundColor: '#ff6b6b', marginRight: '10px' }}
+                  >
+                    ⏱️ Завершить раунд {currentRound.number} (для демо)
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCreateNextRound}
+                    disabled={loading}
+                    style={{ backgroundColor: '#51cf66', marginRight: '10px' }}
+                  >
+                    ➕ Создать следующий раунд
+                  </button>
+                )}
+                <button onClick={handleEndAuction} disabled={loading} style={{ backgroundColor: '#ff6b6b' }}>
+                  ⛔ Завершить весь аукцион
+                </button>
+              </>
             )}
           </div>
           {auction.status === 'draft' && (
