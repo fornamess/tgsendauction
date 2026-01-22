@@ -10,6 +10,9 @@ import { SimpleCache } from '../utils/simpleCache';
 
 const roundCache = new SimpleCache<IRound | null>(5 * 1000); // 5 секунд кэша
 
+// Экспортируем кеш для очистки в тестах
+export { roundCache };
+
 export class RoundService {
   /**
    * Создать новый раунд для активного аукциона

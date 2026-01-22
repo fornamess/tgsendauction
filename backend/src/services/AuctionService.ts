@@ -1,16 +1,19 @@
-import { Auction, IAuction, AuctionStatus } from '../models/Auction.model';
-import { Round, RoundStatus } from '../models/Round.model';
 import {
-  DEFAULT_REWARD_AMOUNT,
-  DEFAULT_WINNERS_PER_ROUND,
-  DEFAULT_TOTAL_ROUNDS,
-  DEFAULT_ROUND_DURATION_MINUTES,
+    DEFAULT_REWARD_AMOUNT,
+    DEFAULT_ROUND_DURATION_MINUTES,
+    DEFAULT_TOTAL_ROUNDS,
+    DEFAULT_WINNERS_PER_ROUND,
 } from '../constants/auction';
+import { Auction, AuctionStatus, IAuction } from '../models/Auction.model';
+import { Round, RoundStatus } from '../models/Round.model';
 import { ConflictError, NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { SimpleCache } from '../utils/simpleCache';
 
 const auctionCache = new SimpleCache<IAuction | null>(5 * 1000); // 5 секунд кэша
+
+// Экспортируем кеш для очистки в тестах
+export { auctionCache };
 
 export class AuctionService {
   /**

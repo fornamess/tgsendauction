@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DEFAULT_REWARD_AMOUNT, DEFAULT_WINNERS_PER_ROUND, MAX_TOP_BETS_LIMIT } from '../constants/auction';
 import { Auction } from '../models/Auction.model';
 import { Bet } from '../models/Bet.model';
 import { Round } from '../models/Round.model';
@@ -6,7 +7,6 @@ import { TransactionType } from '../models/Transaction.model';
 import { IWinner, Winner } from '../models/Winner.model';
 import { NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
-import { DEFAULT_REWARD_AMOUNT, DEFAULT_WINNERS_PER_ROUND, MAX_TOP_BETS_LIMIT } from '../constants/auction';
 import { BetService } from './BetService';
 import { RoundService } from './RoundService';
 import { TransactionService } from './TransactionService';
@@ -58,6 +58,9 @@ export class RankingService {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, winnersPerRound);
 
+    // Определить проигравших пользователей (тех, кто не в топе)
+    const topUserIds = new Set(topBets.map((tb) => tb.userId.toString()));
+
     // Создать записи победителей и начислить призы
     const winners: IWinner[] = [];
     for (let i = 0; i < topBets.length; i++) {
@@ -88,33 +91,27 @@ export class RankingService {
       winners.push(winner);
     }
 
-    // Перенести ставки проигравших в следующий раунд
-    const losingBets = bets.filter(
-      (bet) => !topBets.some((tb) => tb.userId.toString() === bet.userId.toString())
-    );
-
     // Найти следующий раунд
     const nextRound = options?.nextRoundId
       ? await Round.findById(options.nextRoundId)
       : await RoundService.getCurrentRound(round.auctionId.toString());
 
-    if (nextRound && losingBets.length > 0) {
-      // Группируем проигравшие ставки по пользователю
-      const losingUsersMap = new Map<string, (typeof bets)[0]>();
-      for (const bet of losingBets) {
-        const userIdStr = bet.userId.toString();
-        const existing = losingUsersMap.get(userIdStr);
-        if (!existing || bet.amount > existing.amount) {
-          losingUsersMap.set(userIdStr, bet);
-        }
-      }
+    if (nextRound) {
+      // Фильтруем проигравших из уже сгруппированных ставок (тех, кто не в топе)
+      const losingBets = Array.from(userBetsMap.values()).filter(
+        (bet) => !topUserIds.has(bet.userId.toString())
+      );
 
       // Перенести каждую ставку
       let transferSuccess = 0;
       let transferErrors = 0;
-      for (const bet of losingUsersMap.values()) {
+      for (const bet of losingBets) {
         try {
-          await BetService.transferBetToNextRound(bet.userId, bet.roundId, nextRound._id);
+          // Убеждаемся, что roundId является ObjectId
+          const fromRoundId = typeof bet.roundId === 'string'
+            ? new mongoose.Types.ObjectId(bet.roundId)
+            : bet.roundId;
+          await BetService.transferBetToNextRound(bet.userId, fromRoundId, nextRound._id);
           transferSuccess++;
         } catch (error: unknown) {
           transferErrors++;
@@ -130,7 +127,7 @@ export class RankingService {
         roundId,
         success: transferSuccess,
         errors: transferErrors,
-        total: losingUsersMap.size,
+        total: losingBets.length,
       });
     }
 

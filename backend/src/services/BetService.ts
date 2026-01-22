@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
+import { EXTENSION_TIME_MS, MAX_TOP_BETS_LIMIT, SNIPING_THRESHOLD_MS } from '../constants/auction';
 import { Bet, IBet } from '../models/Bet.model';
 import { Round, RoundStatus } from '../models/Round.model';
 import { TransactionType } from '../models/Transaction.model';
 import { User } from '../models/User.model';
-import { SNIPING_THRESHOLD_MS, EXTENSION_TIME_MS, MAX_TOP_BETS_LIMIT } from '../constants/auction';
 import {
   ConflictError,
   InsufficientFundsError,
@@ -24,6 +24,35 @@ export class BetService {
     amount: number,
     idempotencyKey?: string
   ): Promise<IBet> {
+    // Проверка идемпотентности: если передан ключ, сначала проверяем существующие транзакции
+    if (idempotencyKey) {
+      const { Transaction } = await import('../models/Transaction.model');
+      const { IdempotentRequest, IdempotentStatus } = await import('../models/IdempotentRequest.model');
+
+      // Проверяем документ идемпотентности для новой ставки
+      const newBetKey = `bet:new:${idempotencyKey}`;
+      const idempotentDoc = await IdempotentRequest.findOne({
+        key: newBetKey,
+        type: 'Transaction',
+      }).exec();
+
+      if (idempotentDoc) {
+        if (idempotentDoc.status === IdempotentStatus.SUCCEEDED && idempotentDoc.resultId) {
+          // Найти транзакцию и получить betId
+          const existingTx = await Transaction.findById(idempotentDoc.resultId).exec();
+          if (existingTx && existingTx.betId) {
+            const existingBet = await Bet.findById(existingTx.betId).exec();
+            if (existingBet) {
+              return existingBet;
+            }
+          }
+        }
+
+        if (idempotentDoc.status === IdempotentStatus.PENDING) {
+          throw new ConflictError('Операция уже обрабатывается, повторите запрос позже.');
+        }
+      }
+    }
 
     // Проверить, что раунд активен
     let round = await Round.findById(roundId);
@@ -67,6 +96,12 @@ export class BetService {
     let bet: IBet;
 
     if (existingBet) {
+      // Если передан idempotencyKey и сумма та же, возвращаем существующую ставку (идемпотентность)
+      // Это работает, так как если ставка уже создана с этой суммой, значит это повторный запрос
+      if (idempotencyKey && existingBet.amount === amount) {
+        return existingBet;
+      }
+
       // Повышение ставки - заменяем старую
       if (amount <= existingBet.amount) {
         throw new ValidationError(
@@ -201,12 +236,18 @@ export class BetService {
       amount: oldBet.amount,
       version: 0,
     });
-    await newBet.save();
+    const savedBet = await newBet.save();
 
     // Удалить старую ставку
     await Bet.deleteOne({ _id: oldBet._id });
 
-    return newBet;
+    // Вернуть сохраненную ставку, убедившись что она имеет все поля
+    // Перезагружаем документ из БД, чтобы убедиться, что все поля присутствуют
+    const refreshedBet = await Bet.findById(savedBet._id);
+    if (!refreshedBet) {
+      throw new Error('Не удалось найти сохраненную ставку');
+    }
+    return refreshedBet;
   }
 
   /**
