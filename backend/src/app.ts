@@ -63,8 +63,14 @@ app.use(express.json({ limit: '10mb' })); // Ограничение размер
 app.use(sanitizeInput); // Защита от XSS
 app.use(logSuspiciousActivity); // Логирование подозрительной активности
 
-// Rate limiting для всех API запросов, кроме админских операций
+// Rate limiting для всех API запросов, кроме админских операций и load test
 app.use('/api', (req, res, next) => {
+  // Автоматический обход rate limiting для load test пользователей
+  const userId = (req.headers['x-user-id'] as string) || '';
+  if (userId.startsWith('load_test_')) {
+    return next(); // Пропускаем без rate limiting для load test
+  }
+
   // Можно обойти rate limiting для тестов через заголовок X-Bypass-RateLimit
   // Express приводит заголовки к нижнему регистру, но проверим оба варианта для надежности
   const bypassHeader = req.headers['x-bypass-ratelimit'] || req.headers['X-Bypass-RateLimit'];
@@ -92,7 +98,7 @@ app.use('/api', (req, res, next) => {
       return next(); // Пропускаем без rate limiting
     }
   }
-  // Для остальных запросов применяем rate limiting
+  // Для остальных запросов применяем rate limiting (теперь очень мягкий - 10000 в 15 минут)
   return apiLimiter(req, res, next);
 });
 

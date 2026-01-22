@@ -7,7 +7,8 @@
     "start": "tsx src/index.ts",
     "test": "tsx src/index.ts",
     "stress": "tsx src/stress-test.ts",
-    "rps": "tsx src/rps-test.ts"
+    "rps": "tsx src/rps-test.ts",
+    "load": "tsx src/auction-load-test.ts"
   },
   "keywords": [
     "auction",
