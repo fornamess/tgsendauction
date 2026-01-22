@@ -220,7 +220,7 @@ const startServer = async () => {
       await initializeMongoIndexes();
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
-      logger.warn('⚠️ MongoDB native driver недоступен, используем только Mongoose', errorObj);
+      logger.error('⚠️ MongoDB native driver недоступен, используем только Mongoose', errorObj);
     }
 
     // Подключаем Redis (graceful degradation - продолжаем без Redis если недоступен)
@@ -230,7 +230,7 @@ const startServer = async () => {
         logger.warn('⚠️ Redis недоступен, работаем без кеширования и распределенного rate limiting');
       }
     } catch (error) {
-      logger.warn('⚠️ Ошибка подключения к Redis, работаем без кеширования', error instanceof Error ? error : new Error(String(error)));
+      logger.error('⚠️ Ошибка подключения к Redis, работаем без кеширования', error instanceof Error ? error : new Error(String(error)));
     }
 
     const server: Server = app.listen(PORT, '0.0.0.0', () => {

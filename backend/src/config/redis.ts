@@ -61,13 +61,13 @@ export const connectRedis = async (): Promise<Redis | null> => {
       return redisClient;
     } catch (pingError) {
       const errorObj = pingError instanceof Error ? pingError : new Error(String(pingError));
-      logger.warn('⚠️ Redis ping не прошел, продолжаем без Redis', errorObj);
+      logger.error('⚠️ Redis ping не прошел, продолжаем без Redis', errorObj);
       // Не бросаем ошибку, продолжаем без Redis (graceful degradation)
       return null;
     }
   } catch (error) {
     const errorObj = error instanceof Error ? error : new Error(String(error));
-    logger.warn('⚠️ Ошибка подключения к Redis, продолжаем без Redis', errorObj);
+    logger.error('⚠️ Ошибка подключения к Redis, продолжаем без Redis', errorObj);
     // Не бросаем ошибку, продолжаем без Redis (graceful degradation)
     return null;
   }
