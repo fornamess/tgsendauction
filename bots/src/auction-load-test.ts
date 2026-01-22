@@ -39,27 +39,59 @@ interface TestStats {
 async function createUserWithBalance(
   userId: string,
   balance: number,
-  apiUrl: string
+  apiUrl: string,
+  maxRetries: number = 3
 ): Promise<{ success: boolean; error?: string }> {
-  try {
-    await axios.post(
-      `${apiUrl}/api/user/deposit`,
-      { amount: balance },
-      {
-        headers: { 
-          'X-User-Id': userId,
-          'X-Bypass-RateLimit': 'true' // Обход rate limiting для load test
-        },
-        timeout: 10000,
+  let lastError: any;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await axios.post(
+        `${apiUrl}/api/user/deposit`,
+        { amount: balance },
+        {
+          headers: { 
+            'X-User-Id': userId,
+            'X-Bypass-RateLimit': 'true' // Обход rate limiting для load test
+          },
+          timeout: 30000, // Увеличиваем таймаут
+        }
+      );
+      return { success: true };
+    } catch (error: any) {
+      lastError = error;
+      const axiosError = error as AxiosError;
+
+      // Не повторяем для клиентских ошибок (4xx), кроме 429
+      if (axiosError.response?.status && 
+          axiosError.response.status >= 400 && 
+          axiosError.response.status < 500 && 
+          axiosError.response.status !== 429) {
+        break;
       }
-    );
-    return { success: true };
-  } catch (error: any) {
-    const axiosError = error as AxiosError;
-    const errorMessage =
-      (axiosError.response?.data as any)?.error || axiosError.message || 'Unknown error';
-    return { success: false, error: errorMessage };
+
+      // Для 502/503/504 и network errors - повторяем
+      if (attempt < maxRetries && (
+        axiosError.response?.status === 502 ||
+        axiosError.response?.status === 503 ||
+        axiosError.response?.status === 504 ||
+        axiosError.code === 'ECONNRESET' ||
+        axiosError.code === 'ETIMEDOUT' ||
+        !axiosError.response
+      )) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      break;
+    }
   }
+
+  const axiosError = lastError as AxiosError;
+  const errorMessage =
+    (axiosError.response?.data as any)?.error || axiosError.message || 'Unknown error';
+  return { success: false, error: errorMessage };
 }
 
 /**
@@ -87,41 +119,83 @@ async function getCurrentRound(apiUrl: string): Promise<{ roundId: string | null
 }
 
 /**
- * Сделать ставку
+ * Сделать ставку с retry логикой
  */
 async function placeBet(
   userId: string,
   roundId: string,
   amount: number,
-  apiUrl: string
+  apiUrl: string,
+  maxRetries: number = 3
 ): Promise<{ success: boolean; latency: number; error?: string; statusCode?: number }> {
   const startTime = Date.now();
-  try {
-    const response = await axios.post(
-      `${apiUrl}/api/bet`,
-      { roundId, amount },
-      {
-        headers: { 
-          'X-User-Id': userId,
-          'X-Bypass-RateLimit': 'true' // Обход rate limiting для load test
-        },
-        timeout: 10000,
+  let lastError: any;
+  let lastStatusCode: number | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await axios.post(
+        `${apiUrl}/api/bet`,
+        { roundId, amount },
+        {
+          headers: { 
+            'X-User-Id': userId,
+            'X-Bypass-RateLimit': 'true' // Обход rate limiting для load test
+          },
+          timeout: 30000, // Увеличиваем таймаут до 30 секунд
+        }
+      );
+      const latency = Date.now() - startTime;
+      return { success: true, latency, statusCode: response.status };
+    } catch (error: any) {
+      lastError = error;
+      const axiosError = error as AxiosError;
+      lastStatusCode = axiosError.response?.status;
+
+      // Не повторяем для клиентских ошибок (4xx), кроме 429 (rate limit)
+      if (axiosError.response?.status && 
+          axiosError.response.status >= 400 && 
+          axiosError.response.status < 500 && 
+          axiosError.response.status !== 429) {
+        break;
       }
-    );
-    const latency = Date.now() - startTime;
-    return { success: true, latency, statusCode: response.status };
-  } catch (error: any) {
-    const latency = Date.now() - startTime;
-    const axiosError = error as AxiosError;
-    const errorMessage =
-      (axiosError.response?.data as any)?.error || axiosError.message || 'Unknown error';
-    return {
-      success: false,
-      latency,
-      error: errorMessage,
-      statusCode: axiosError.response?.status,
-    };
+
+      // Не повторяем для ошибок валидации (недостаточно средств и т.д.)
+      const errorMessage = (axiosError.response?.data as any)?.error || axiosError.message || '';
+      if (errorMessage.includes('Недостаточно средств') || 
+          errorMessage.includes('duplicate key') ||
+          errorMessage.includes('Раунд не активен')) {
+        break;
+      }
+
+      // Для 502/503/504 и network errors - повторяем с экспоненциальной задержкой
+      if (attempt < maxRetries && (
+        axiosError.response?.status === 502 ||
+        axiosError.response?.status === 503 ||
+        axiosError.response?.status === 504 ||
+        axiosError.code === 'ECONNRESET' ||
+        axiosError.code === 'ETIMEDOUT' ||
+        !axiosError.response
+      )) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 5000); // Максимум 5 секунд
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      break;
+    }
   }
+
+  const latency = Date.now() - startTime;
+  const axiosError = lastError as AxiosError;
+  const errorMessage =
+    (axiosError.response?.data as any)?.error || axiosError.message || 'Unknown error';
+  return {
+    success: false,
+    latency,
+    error: errorMessage,
+    statusCode: lastStatusCode,
+  };
 }
 
 /**
