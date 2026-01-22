@@ -1,17 +1,12 @@
 import mongoose from 'mongoose';
-import { Round, IRound, RoundStatus } from '../models/Round.model';
-import { Auction, AuctionStatus, IAuction } from '../models/Auction.model';
-import { NotFoundError, ConflictError } from '../utils/errors';
 import {
-  DEFAULT_TOTAL_ROUNDS,
   DEFAULT_ROUND_DURATION_MINUTES,
+  DEFAULT_TOTAL_ROUNDS,
 } from '../constants/auction';
-import { SimpleCache } from '../utils/simpleCache';
-
-const roundCache = new SimpleCache<IRound | null>(5 * 1000); // 5 секунд кэша
-
-// Экспортируем кеш для очистки в тестах
-export { roundCache };
+import { Auction, AuctionStatus, IAuction } from '../models/Auction.model';
+import { IRound, Round, RoundStatus } from '../models/Round.model';
+import { ConflictError, NotFoundError } from '../utils/errors';
+import { roundCache } from '../utils/redisCache';
 
 export class RoundService {
   /**
@@ -74,29 +69,30 @@ export class RoundService {
    */
   static async getCurrentRound(auctionId?: string): Promise<IRound | null> {
     const cacheKey = auctionId ? `currentRound:${auctionId}` : 'currentRound:global';
-    const cached = roundCache.get(cacheKey);
-    if (cached !== null) {
-      return cached;
-    }
 
-    const query: { status: RoundStatus; auctionId?: mongoose.Types.ObjectId } = {
-      status: RoundStatus.ACTIVE,
-    };
+    return await roundCache.getOrSet(
+      cacheKey,
+      async () => {
+        const query: { status: RoundStatus; auctionId?: mongoose.Types.ObjectId } = {
+          status: RoundStatus.ACTIVE,
+        };
 
-    if (auctionId) {
-      query.auctionId = new mongoose.Types.ObjectId(auctionId);
-    } else {
-      // Найти активный аукцион
-      const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
-      if (!auction) {
-        return null;
-      }
-      query.auctionId = auction._id;
-    }
+        if (auctionId) {
+          query.auctionId = new mongoose.Types.ObjectId(auctionId);
+        } else {
+          // Найти активный аукцион
+          const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
+          if (!auction) {
+            return null;
+          }
+          query.auctionId = auction._id;
+        }
 
-    const round = await Round.findOne(query).populate('auctionId').exec();
-    roundCache.set(cacheKey, round);
-    return round;
+        const round = await Round.findOne(query).populate('auctionId').exec();
+        return round;
+      },
+      5000 // 5 секунд TTL
+    );
   }
 
   /**

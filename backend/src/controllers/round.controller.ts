@@ -1,10 +1,10 @@
 import { Response } from 'express';
-import { IAuction, Auction, AuctionStatus } from '../models/Auction.model';
-import { RoundService } from '../services/RoundService';
-import { RankingService } from '../services/RankingService';
+import { Auction, AuctionStatus, IAuction } from '../models/Auction.model';
 import { AuctionService } from '../services/AuctionService';
+import { RankingService } from '../services/RankingService';
+import { RoundService } from '../services/RoundService';
 import { AuthRequest } from '../utils/auth';
-import { NotFoundError, ConflictError } from '../utils/errors';
+import { ConflictError, NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
 export class RoundController {

@@ -8,12 +8,7 @@ import { Auction, AuctionStatus, IAuction } from '../models/Auction.model';
 import { Round, RoundStatus } from '../models/Round.model';
 import { ConflictError, NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
-import { SimpleCache } from '../utils/simpleCache';
-
-const auctionCache = new SimpleCache<IAuction | null>(5 * 1000); // 5 секунд кэша
-
-// Экспортируем кеш для очистки в тестах
-export { auctionCache };
+import { auctionCache } from '../utils/redisCache';
 
 export class AuctionService {
   /**
@@ -53,14 +48,15 @@ export class AuctionService {
    */
   static async getCurrentAuction(): Promise<IAuction | null> {
     const cacheKey = 'currentAuction';
-    const cached = auctionCache.get(cacheKey);
-    if (cached !== null) {
-      return cached;
-    }
-
-    const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE }).exec();
-    auctionCache.set(cacheKey, auction);
-    return auction;
+    
+    return await auctionCache.getOrSet(
+      cacheKey,
+      async () => {
+        const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE }).exec();
+        return auction;
+      },
+      5000 // 5 секунд TTL
+    );
   }
 
   /**
@@ -87,7 +83,7 @@ export class AuctionService {
 
     auction.status = AuctionStatus.ACTIVE;
     const savedAuction = await auction.save();
-    auctionCache.clear();
+    await auctionCache.clear();
 
     // Автоматически создать первый раунд при запуске аукциона
     try {
@@ -132,7 +128,7 @@ export class AuctionService {
     auction.status = AuctionStatus.ENDED;
     auction.endedAt = new Date();
     const saved = await auction.save();
-    auctionCache.clear();
+    await auctionCache.clear();
     return saved;
   }
 
@@ -183,7 +179,7 @@ export class AuctionService {
     }
 
     const saved = await auction.save();
-    auctionCache.clear();
+    await auctionCache.clear();
     return saved;
   }
 }

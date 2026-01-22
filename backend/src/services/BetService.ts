@@ -150,13 +150,62 @@ export class BetService {
       }
 
       // Создать новую ставку
-      bet = new Bet({
-        userId,
-        roundId,
-        amount,
-        version: 0,
-      });
-      bet = await bet.save();
+      try {
+        bet = new Bet({
+          userId,
+          roundId,
+          amount,
+          version: 0,
+        });
+        bet = await bet.save();
+      } catch (saveError: any) {
+        // Обработка race condition: если ставка уже создана другим запросом
+        // Код 11000 - это MongoDB duplicate key error
+        if (saveError.code === 11000) {
+          // Найти существующую ставку
+          const existingBet = await Bet.findOne({ userId, roundId });
+          if (existingBet) {
+            // Если сумма совпадает - это идемпотентный запрос, возвращаем существующую
+            if (existingBet.amount === amount) {
+              return existingBet;
+            }
+            // Если сумма отличается - это повышение ставки, обрабатываем как повышение
+            if (amount > existingBet.amount) {
+              const difference = amount - existingBet.amount;
+              const user = await User.findById(userId);
+              if (!user) {
+                throw new NotFoundError('Пользователь', userId.toString());
+              }
+              if (user.balance < difference) {
+                throw new InsufficientFundsError(difference, user.balance);
+              }
+              existingBet.amount = amount;
+              existingBet.version = (existingBet.version || 0) + 1;
+              bet = await existingBet.save();
+
+              if (!round) {
+                throw new NotFoundError('Раунд', roundId.toString());
+              }
+              await TransactionService.createTransaction(
+                userId,
+                TransactionType.BET,
+                difference,
+                roundId,
+                bet._id,
+                `Повышение ставки в раунде ${round.number}`,
+                idempotencyKey ? `bet:increase:${idempotencyKey}` : undefined
+              );
+              return bet;
+            } else {
+              throw new ValidationError(
+                `Новая ставка должна быть больше текущей (текущая: ${existingBet.amount})`
+              );
+            }
+          }
+        }
+        // Если это не duplicate key ошибка - пробрасываем дальше
+        throw saveError;
+      }
 
       if (!round) {
         throw new NotFoundError('Раунд', roundId.toString());

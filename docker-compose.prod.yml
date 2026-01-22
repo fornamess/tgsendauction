@@ -1,6 +1,21 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: tgsendauction-redis-prod
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
   app:
     build:
       context: .
@@ -15,8 +30,12 @@ services:
       NODE_ENV: production
       PORT: 3000
       MONGODB_URI: mongodb://localhost:27017/auction_db
+      REDIS_URL: redis://redis:6379
       TELEGRAM_BOT_TOKEN: 8090299133:AAHL83f8hxEPwtc_iv8CH9cGQqmcHmRtHfk
       ALLOWED_ORIGINS: https://web.telegram.org,https://t.me
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
       - mongodb_data:/data/db
     healthcheck:
@@ -28,3 +47,4 @@ services:
 
 volumes:
   mongodb_data:
+  redis_data_prod:

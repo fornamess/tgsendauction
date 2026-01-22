@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ObjectId } from 'mongodb';
 import { DEFAULT_REWARD_AMOUNT, DEFAULT_WINNERS_PER_ROUND, MAX_TOP_BETS_LIMIT } from '../constants/auction';
 import { Auction } from '../models/Auction.model';
 import { Bet } from '../models/Bet.model';
@@ -7,6 +8,8 @@ import { TransactionType } from '../models/Transaction.model';
 import { IWinner, Winner } from '../models/Winner.model';
 import { NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { getMongoDB } from '../config/mongodb';
+import { topBetsCache } from '../utils/redisCache';
 import { BetService } from './BetService';
 import { RoundService } from './RoundService';
 import { TransactionService } from './TransactionService';
@@ -61,24 +64,36 @@ export class RankingService {
     // Определить проигравших пользователей (тех, кто не в топе)
     const topUserIds = new Set(topBets.map((tb) => tb.userId.toString()));
 
-    // Создать записи победителей и начислить призы
+    // Создать записи победителей и начислить призы (batch операции)
     const winners: IWinner[] = [];
-    for (let i = 0; i < topBets.length; i++) {
-      const bet = topBets[i];
+    
+    // Подготовка batch операций для Winner
+    const winnerDocs = topBets.map((bet, i) => ({
+      userId: bet.userId,
+      roundId: round._id,
+      betId: bet._id,
+      rank: i + 1,
+      prizeRobux: rewardAmount,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    // Batch insert для Winner
+    if (winnerDocs.length > 0) {
+      await Winner.insertMany(winnerDocs);
+      // Загружаем созданные winners для возврата
+      const winnerIds = winnerDocs.map(doc => doc.betId);
+      const createdWinners = await Winner.find({ betId: { $in: winnerIds } })
+        .sort({ rank: 1 })
+        .exec();
+      winners.push(...createdWinners);
+    }
+
+    // Batch создание транзакций (через TransactionService, но можно оптимизировать)
+    // Пока используем параллельные вызовы вместо последовательных
+    const transactionPromises = topBets.map(async (bet, i) => {
       const rank = i + 1;
-
-      // Создать запись победителя
-      const winner = new Winner({
-        userId: bet.userId,
-        roundId: round._id,
-        betId: bet._id,
-        rank,
-        prizeRobux: rewardAmount, // Сохраняем для истории, но можно переименовать в rewardAmount в будущем
-      });
-      await winner.save();
-
-      // Начислить приз (робуксы)
-      await TransactionService.createTransaction(
+      return TransactionService.createTransaction(
         bet.userId,
         TransactionType.PRIZE,
         rewardAmount,
@@ -87,9 +102,10 @@ export class RankingService {
         `Приз за ${rank} место в раунде ${round.number}`,
         `prize:${round._id.toString()}:${bet.userId.toString()}:${rank}`
       );
-
-      winners.push(winner);
-    }
+    });
+    
+    // Выполняем все транзакции параллельно
+    await Promise.all(transactionPromises);
 
     // Найти следующий раунд
     const nextRound = options?.nextRoundId
@@ -135,46 +151,139 @@ export class RankingService {
   }
 
   /**
-   * Получить топ-100 текущего раунда
+   * Получить топ-100 текущего раунда (оптимизировано через aggregation pipeline)
    */
   static async getCurrentTop100(
     roundId: string,
     limit: number = MAX_TOP_BETS_LIMIT
   ): Promise<Array<{ rank: number; bet: ReturnType<typeof Bet.prototype.toObject> }>> {
-    // Оптимизация: выбираем только нужные поля и сортируем на уровне БД
-    const bets = await Bet.find({ roundId })
-      .select('userId amount createdAt')
-      .sort({ amount: -1 })
-      .limit(Math.max(limit * 2, 200)) // Берем больше для группировки
-      .exec();
-
-    // Группировка по userId, берем максимальную ставку
-    const userBetsMap = new Map<string, (typeof bets)[0]>();
-    for (const bet of bets) {
-      const userIdStr = bet.userId.toString();
-      const existing = userBetsMap.get(userIdStr);
-      if (!existing || bet.amount > existing.amount) {
-        userBetsMap.set(userIdStr, bet);
-      }
+    // Кешируем топ-100 ставок на 2 секунды для снижения нагрузки
+    const cacheKey = `top100:${roundId}:${limit}`;
+    
+    const cached = await topBetsCache.get<Array<{ rank: number; bet: ReturnType<typeof Bet.prototype.toObject> }>>(cacheKey);
+    if (cached !== null) {
+      return cached;
     }
 
-    // Сортировка и топ-100
-    const topBets = Array.from(userBetsMap.values())
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, limit);
+    try {
+      // Используем MongoDB aggregation pipeline для оптимизации
+      const db = getMongoDB();
+      const roundObjectId = new ObjectId(roundId);
 
-    // Пополнить данными пользователя
-    const result = await Promise.all(
-      topBets.map(async (bet, index) => {
-        await bet.populate('userId');
-        return {
-          rank: index + 1,
-          bet: bet.toObject(),
-        };
-      })
-    );
+      const pipeline = [
+        // Фильтруем ставки по roundId
+        {
+          $match: {
+            roundId: roundObjectId,
+          },
+        },
+        // Группируем по userId, берем максимальную ставку
+        {
+          $group: {
+            _id: '$userId',
+            amount: { $max: '$amount' },
+            betId: { $first: '$_id' },
+            createdAt: { $first: '$createdAt' },
+          },
+        },
+        // Сортируем по убыванию суммы
+        {
+          $sort: { amount: -1 },
+        },
+        // Ограничиваем количество
+        {
+          $limit: limit,
+        },
+        // Join с коллекцией users
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        // Разворачиваем массив user (должен быть один элемент)
+        {
+          $unwind: {
+            path: '$user',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+        // Формируем результат
+        {
+          $project: {
+            _id: '$betId',
+            userId: {
+              _id: '$user._id',
+              username: '$user.username',
+              balance: '$user.balance',
+              robux: '$user.robux',
+              telegramId: '$user.telegramId',
+              firstName: '$user.firstName',
+              lastName: '$user.lastName',
+              photoUrl: '$user.photoUrl',
+              createdAt: '$user.createdAt',
+              updatedAt: '$user.updatedAt',
+            },
+            amount: 1,
+            createdAt: 1,
+          },
+        },
+      ];
 
-    return result;
+      const results = await db.collection('bets').aggregate(pipeline).toArray();
+
+      // Преобразуем в нужный формат
+      const formattedResults = results.map((item: any, index: number) => ({
+        rank: index + 1,
+        bet: {
+          _id: item._id,
+          userId: item.userId,
+          amount: item.amount,
+          createdAt: item.createdAt,
+        },
+      }));
+
+      // Кешируем результат на 2 секунды
+      await topBetsCache.set(cacheKey, formattedResults, 2000);
+      
+      return formattedResults;
+    } catch (error: unknown) {
+      // Fallback на старый метод при ошибке
+      logger.error('Ошибка aggregation pipeline, используем fallback', error, { roundId });
+      
+      const bets = await Bet.find({ roundId })
+        .select('userId amount createdAt')
+        .sort({ amount: -1 })
+        .limit(Math.max(limit * 2, 200))
+        .exec();
+
+      const userBetsMap = new Map<string, (typeof bets)[0]>();
+      for (const bet of bets) {
+        const userIdStr = bet.userId.toString();
+        const existing = userBetsMap.get(userIdStr);
+        if (!existing || bet.amount > existing.amount) {
+          userBetsMap.set(userIdStr, bet);
+        }
+      }
+
+      const topBets = Array.from(userBetsMap.values())
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, limit);
+
+      const result = await Promise.all(
+        topBets.map(async (bet, index) => {
+          await bet.populate('userId');
+          return {
+            rank: index + 1,
+            bet: bet.toObject(),
+          };
+        })
+      );
+
+      return result;
+    }
   }
 
   /**

@@ -1,11 +1,17 @@
+import compression from 'compression';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import helmet from 'helmet';
 import type { Server } from 'http';
 import path from 'path';
 import { connectDatabase } from './config/database';
+import { connectMongoDB } from './config/mongodb';
+import { connectRedis } from './config/redis';
+import { initializeMongoIndexes } from './models/mongodb';
 import { startScheduler } from './jobs/scheduler';
 import { apiLimiter } from './middleware/rateLimitSimple';
+import { apiLimiterRedis } from './middleware/rateLimitRedis';
 import { logSuspiciousActivity, sanitizeInput, validatePayloadSize } from './middleware/security';
 import { auctionRoutes } from './routes/auction.routes';
 import { betRoutes } from './routes/bet.routes';
@@ -15,6 +21,7 @@ import { userRoutes } from './routes/user.routes';
 import { errorHandler } from './utils/errors';
 import { logger } from './utils/logger';
 import { getMetricsSnapshot } from './utils/metrics';
+import { performanceMiddleware, getPerformanceMetrics, getMemoryMetrics } from './utils/performance';
 
 // Загружаем переменные окружения
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -22,39 +29,90 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// Middleware безопасности
+// Compression middleware (должен быть одним из первых)
+app.use(compression());
+
+// Helmet для базовых заголовков безопасности
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Отключаем CSP здесь, настраиваем в nginx
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
+// Middleware безопасности - CORS с whitelist
+const getAllowedOrigins = (): string[] => {
+  const origins: string[] = [];
+  
+  // Telegram домены
+  origins.push(
+    'https://web.telegram.org',
+    'https://telegram.org',
+    'https://t.me'
+  );
+  
+  // Amvera домены
+  origins.push(
+    'https://ygth-romansf.waw0.amvera.tech',
+    'https://amvera.tech',
+    'https://amvera.ru'
+  );
+  
+  // Development
+  if (process.env.NODE_ENV !== 'production') {
+    origins.push(
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000'
+    );
+  }
+  
+  // Дополнительные origins из переменных окружения
+  if (process.env.ALLOWED_ORIGINS) {
+    const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+    origins.push(...envOrigins);
+  }
+  
+  return [...new Set(origins)]; // Убираем дубликаты
+};
+
 const corsOptions = {
   origin: function (
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void
   ) {
-    // Разрешаем запросы без origin (например, мобильные приложения, Postman)
-    if (!origin) return callback(null, true);
-
-    // Разрешаем Telegram домены
-    if (
-      origin.includes('telegram.org') ||
-      origin.includes('t.me') ||
-      origin.includes('web.telegram.org') ||
-      origin.includes('localhost') ||
-      origin.includes('127.0.0.1') ||
-      origin.includes('amvera.tech') ||
-      origin.includes('amvera.ru')
-    ) {
+    const allowedOrigins = getAllowedOrigins();
+    
+    // Разрешаем запросы без origin только в development (мобильные приложения, Postman)
+    if (!origin) {
+      if (process.env.NODE_ENV === 'production') {
+        return callback(new Error('CORS: Origin не указан'), false);
+      }
       return callback(null, true);
     }
 
-    // В production можно добавить проверку разрешенных доменов
-    if (process.env.ALLOWED_ORIGINS) {
-      const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+    // Проверяем точное совпадение (без includes для безопасности)
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
 
-    callback(null, true); // Разрешаем все для development
+    // В development логируем, но разрешаем
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CORS: Разрешен origin не из whitelist (development mode)', { origin });
+      return callback(null, true);
+    }
+
+    // В production отклоняем
+    logger.warn('CORS: Запрос отклонен - origin не в whitelist', { origin, allowedOrigins });
+    callback(new Error('CORS: Origin не разрешен'), false);
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-Telegram-Init-Data', 'X-CSRF-Token', 'X-Bypass-RateLimit'],
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
+  maxAge: 86400, // 24 часа для preflight
 };
 
 app.use(cors(corsOptions));
@@ -98,9 +156,12 @@ app.use('/api', (req, res, next) => {
       return next(); // Пропускаем без rate limiting
     }
   }
-  // Для остальных запросов применяем rate limiting (теперь очень мягкий - 10000 в 15 минут)
-  return apiLimiter(req, res, next);
+  // Для остальных запросов применяем Redis-based rate limiting (10000 в 15 минут)
+  return apiLimiterRedis(req, res, next);
 });
+
+// Мониторинг производительности (для всех окружений)
+app.use(performanceMiddleware);
 
 // Логирование всех запросов (только в development)
 if (process.env.NODE_ENV !== 'production') {
@@ -131,9 +192,18 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Простейшая метрика для мониторинга
+// Метрики для мониторинга
 app.get('/metrics', (req, res) => {
-  res.json(getMetricsSnapshot());
+  const performanceMetrics = getPerformanceMetrics();
+  const memoryMetrics = getMemoryMetrics();
+  const appMetrics = getMetricsSnapshot();
+  
+  res.json({
+    ...appMetrics,
+    performance: performanceMetrics,
+    memory: memoryMetrics,
+    uptime: process.uptime(),
+  });
 });
 
 // Обработчик ошибок (должен быть последним)
@@ -142,7 +212,22 @@ app.use(errorHandler);
 // Инициализация
 const startServer = async () => {
   try {
+    // Подключаем MongoDB (Mongoose для обратной совместимости)
     await connectDatabase();
+    
+    // Подключаем MongoDB native driver (для новых сервисов)
+    try {
+      await connectMongoDB();
+      await initializeMongoIndexes();
+    } catch (error) {
+      logger.warn('⚠️ MongoDB native driver недоступен, используем только Mongoose', error);
+    }
+    
+    // Подключаем Redis (graceful degradation - продолжаем без Redis если недоступен)
+    const redisClient = await connectRedis();
+    if (!redisClient) {
+      logger.warn('⚠️ Redis недоступен, работаем без кеширования и распределенного rate limiting');
+    }
 
     const server: Server = app.listen(PORT, '0.0.0.0', () => {
       logger.info('🚀 Сервер запущен', {

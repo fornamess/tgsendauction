@@ -4,7 +4,13 @@ import { logger } from '../utils/logger';
 export const connectDatabase = async (): Promise<void> => {
   try {
     const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/auction_db';
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoUri, {
+      maxPoolSize: 50, // Увеличиваем пул соединений для высокой нагрузки
+      minPoolSize: 10, // Минимальный пул соединений
+      serverSelectionTimeoutMS: 5000, // Таймаут выбора сервера
+      socketTimeoutMS: 45000, // Таймаут сокета
+      connectTimeoutMS: 10000, // Таймаут подключения
+    });
     logger.info('✅ MongoDB подключена', { mongoUri });
   } catch (error) {
     logger.error('❌ Ошибка подключения к MongoDB', error);

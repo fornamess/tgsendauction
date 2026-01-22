@@ -40,7 +40,7 @@ async function createUserWithBalance(
   userId: string,
   balance: number,
   apiUrl: string,
-  maxRetries: number = 3
+  maxRetries: number = 5  // Увеличиваем количество попыток
 ): Promise<{ success: boolean; error?: string }> {
   let lastError: any;
 
@@ -50,7 +50,7 @@ async function createUserWithBalance(
         `${apiUrl}/api/user/deposit`,
         { amount: balance },
         {
-          headers: { 
+          headers: {
             'X-User-Id': userId,
             'X-Bypass-RateLimit': 'true' // Обход rate limiting для load test
           },
@@ -63,9 +63,9 @@ async function createUserWithBalance(
       const axiosError = error as AxiosError;
 
       // Не повторяем для клиентских ошибок (4xx), кроме 429
-      if (axiosError.response?.status && 
-          axiosError.response.status >= 400 && 
-          axiosError.response.status < 500 && 
+      if (axiosError.response?.status &&
+          axiosError.response.status >= 400 &&
+          axiosError.response.status < 500 &&
           axiosError.response.status !== 429) {
         break;
       }
@@ -77,9 +77,10 @@ async function createUserWithBalance(
         axiosError.response?.status === 504 ||
         axiosError.code === 'ECONNRESET' ||
         axiosError.code === 'ETIMEDOUT' ||
+        axiosError.code === 'ECONNREFUSED' ||
         !axiosError.response
       )) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+        const delay = Math.min(2000 * Math.pow(2, attempt), 10000); // Максимум 10 секунд
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -100,7 +101,7 @@ async function createUserWithBalance(
 async function getCurrentRound(apiUrl: string): Promise<{ roundId: string | null; error?: string }> {
   try {
     const response = await axios.get(`${apiUrl}/api/round/current`, {
-      headers: { 
+      headers: {
         'X-User-Id': 'load_test',
         'X-Bypass-RateLimit': 'true' // Обход rate limiting для load test
       },
@@ -126,7 +127,7 @@ async function placeBet(
   roundId: string,
   amount: number,
   apiUrl: string,
-  maxRetries: number = 3
+  maxRetries: number = 5  // Увеличиваем количество попыток для 502 ошибок
 ): Promise<{ success: boolean; latency: number; error?: string; statusCode?: number }> {
   const startTime = Date.now();
   let lastError: any;
@@ -138,7 +139,7 @@ async function placeBet(
         `${apiUrl}/api/bet`,
         { roundId, amount },
         {
-          headers: { 
+          headers: {
             'X-User-Id': userId,
             'X-Bypass-RateLimit': 'true' // Обход rate limiting для load test
           },
@@ -153,16 +154,16 @@ async function placeBet(
       lastStatusCode = axiosError.response?.status;
 
       // Не повторяем для клиентских ошибок (4xx), кроме 429 (rate limit)
-      if (axiosError.response?.status && 
-          axiosError.response.status >= 400 && 
-          axiosError.response.status < 500 && 
+      if (axiosError.response?.status &&
+          axiosError.response.status >= 400 &&
+          axiosError.response.status < 500 &&
           axiosError.response.status !== 429) {
         break;
       }
 
       // Не повторяем для ошибок валидации (недостаточно средств и т.д.)
       const errorMessage = (axiosError.response?.data as any)?.error || axiosError.message || '';
-      if (errorMessage.includes('Недостаточно средств') || 
+      if (errorMessage.includes('Недостаточно средств') ||
           errorMessage.includes('duplicate key') ||
           errorMessage.includes('Раунд не активен')) {
         break;
@@ -175,9 +176,10 @@ async function placeBet(
         axiosError.response?.status === 504 ||
         axiosError.code === 'ECONNRESET' ||
         axiosError.code === 'ETIMEDOUT' ||
+        axiosError.code === 'ECONNREFUSED' ||
         !axiosError.response
       )) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 5000); // Максимум 5 секунд
+        const delay = Math.min(2000 * Math.pow(2, attempt), 10000); // Максимум 10 секунд, больше задержка
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -299,49 +301,62 @@ async function runLoadTest(config: LoadTestConfig, apiUrl: string): Promise<Test
       continue;
     }
 
-    // Делаем ставки
+    // Делаем ставки с батчингом, чтобы не перегружать сервер
     const betPromises: Promise<void>[] = [];
     const roundStartTime = Date.now();
+    const batchSize = Math.min(20, config.concurrentBets); // Максимум 20 одновременных запросов в батче (уменьшено для стабильности)
 
-    // Создаем все промисы для ставок
-    for (let i = 0; i < config.concurrentBets; i++) {
-      const userIndex = Math.floor(Math.random() * users.length);
-      const user = users[userIndex];
-      const betAmount = Math.floor(
-        Math.random() * (config.betAmountMax - config.betAmountMin) + config.betAmountMin
-      );
+    // Создаем ставки батчами
+    for (let batchStart = 0; batchStart < config.concurrentBets; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize, config.concurrentBets);
+      const batchPromises: Promise<void>[] = [];
 
-      const promise = placeBet(user.id, currentRound.roundId, betAmount, apiUrl).then(
-        (result) => {
-          stats.totalBets++;
-          user.betsCount++;
-          latencies.push(result.latency);
+      // Создаем промисы для текущего батча
+      for (let i = batchStart; i < batchEnd; i++) {
+        const userIndex = Math.floor(Math.random() * users.length);
+        const user = users[userIndex];
+        const betAmount = Math.floor(
+          Math.random() * (config.betAmountMax - config.betAmountMin) + config.betAmountMin
+        );
 
-          if (result.latency < stats.minLatency) stats.minLatency = result.latency;
-          if (result.latency > stats.maxLatency) stats.maxLatency = result.latency;
+        const promise = placeBet(user.id, currentRound.roundId, betAmount, apiUrl).then(
+          (result) => {
+            stats.totalBets++;
+            user.betsCount++;
+            latencies.push(result.latency);
 
-          if (result.success) {
-            stats.successBets++;
-            user.successBets++;
-          } else {
-            stats.failedBets++;
-            user.failedBets++;
-            const errorKey = result.error || `HTTP ${result.statusCode || 'Unknown'}`;
-            stats.errors.set(errorKey, (stats.errors.get(errorKey) || 0) + 1);
+            if (result.latency < stats.minLatency) stats.minLatency = result.latency;
+            if (result.latency > stats.maxLatency) stats.maxLatency = result.latency;
+
+            if (result.success) {
+              stats.successBets++;
+              user.successBets++;
+            } else {
+              stats.failedBets++;
+              user.failedBets++;
+              const errorKey = result.error || `HTTP ${result.statusCode || 'Unknown'}`;
+              stats.errors.set(errorKey, (stats.errors.get(errorKey) || 0) + 1);
+            }
           }
+        );
+
+        batchPromises.push(promise);
+        betPromises.push(promise);
+
+        // Небольшая задержка между созданием запросов в батче
+        if (i < batchEnd - 1 && config.delayBetweenBets > 0) {
+          await new Promise((resolve) => setTimeout(resolve, config.delayBetweenBets));
         }
-      );
+      }
 
-      betPromises.push(promise);
+      // Ждем завершения текущего батча перед следующим
+      await Promise.allSettled(batchPromises);
 
-      // Небольшая задержка между созданием запросов для более реалистичной нагрузки
-      if (i < config.concurrentBets - 1 && config.delayBetweenBets > 0) {
-        await new Promise((resolve) => setTimeout(resolve, config.delayBetweenBets));
+      // Небольшая пауза между батчами, чтобы дать серверу передохнуть
+      if (batchEnd < config.concurrentBets) {
+        await new Promise((resolve) => setTimeout(resolve, 500)); // Увеличена пауза до 500мс
       }
     }
-
-    // Ждем все ставки
-    await Promise.allSettled(betPromises);
 
     const roundDuration = Date.now() - roundStartTime;
     const roundSuccess = stats.successBets - previousSuccessBets;
@@ -422,34 +437,39 @@ function printStats(stats: TestStats) {
  * Главная функция
  */
 async function main() {
+  // Получаем все аргументы, включая те, что после --
   const args = process.argv.slice(2);
 
+  // Отладочный вывод для проверки аргументов
+  if (args.length > 0) {
+    console.log('🔍 Отладка: полученные аргументы:', args);
+  }
+
+  // Функция для парсинга аргумента
+  const getArg = (name: string, defaultValue: string): string => {
+    // Ищем аргумент в формате --name=value или --name value
+    const arg = args.find((a) => a.startsWith(`--${name}=`));
+    if (arg) {
+      return arg.split('=')[1];
+    }
+    // Ищем аргумент в формате --name value (отдельные слова)
+    const index = args.indexOf(`--${name}`);
+    if (index !== -1 && args[index + 1]) {
+      return args[index + 1];
+    }
+    return defaultValue;
+  };
+
   // Парсинг аргументов
-  const numUsers = parseInt(
-    args.find((a) => a.startsWith('--users='))?.split('=')[1] || '100'
-  );
-  const balanceMin = parseInt(
-    args.find((a) => a.startsWith('--balance-min='))?.split('=')[1] || '10000'
-  );
-  const balanceMax = parseInt(
-    args.find((a) => a.startsWith('--balance-max='))?.split('=')[1] || '100000'
-  );
-  const betAmountMin = parseInt(
-    args.find((a) => a.startsWith('--bet-min='))?.split('=')[1] || '1000'
-  );
-  const betAmountMax = parseInt(
-    args.find((a) => a.startsWith('--bet-max='))?.split('=')[1] || '50000'
-  );
-  const concurrentBets = parseInt(
-    args.find((a) => a.startsWith('--concurrent='))?.split('=')[1] || '50'
-  );
-  const delayBetweenBets = parseInt(
-    args.find((a) => a.startsWith('--delay='))?.split('=')[1] || '100'
-  );
-  const rounds = parseInt(
-    args.find((a) => a.startsWith('--rounds='))?.split('=')[1] || '5'
-  );
-  const apiUrl = args.find((a) => a.startsWith('--api='))?.split('=')[1] || API_URL;
+  const numUsers = parseInt(getArg('users', '100'));
+  const balanceMin = parseInt(getArg('balance-min', '10000'));
+  const balanceMax = parseInt(getArg('balance-max', '100000'));
+  const betAmountMin = parseInt(getArg('bet-min', '1000'));
+  const betAmountMax = parseInt(getArg('bet-max', '50000'));
+  const concurrentBets = parseInt(getArg('concurrent', '50'));
+  const delayBetweenBets = parseInt(getArg('delay', '100'));
+  const rounds = parseInt(getArg('rounds', '5'));
+  const apiUrl = getArg('api', API_URL);
 
   const config: LoadTestConfig = {
     numUsers,
@@ -461,6 +481,20 @@ async function main() {
     delayBetweenBets,
     rounds,
   };
+
+  // Отладочный вывод для проверки парсинга аргументов
+  console.log('🔍 Отладка: распарсенные аргументы:', {
+    numUsers,
+    balanceMin,
+    balanceMax,
+    betAmountMin,
+    betAmountMax,
+    concurrentBets,
+    delayBetweenBets,
+    rounds,
+    apiUrl,
+  });
+  console.log('🔍 Отладка: process.argv:', process.argv);
 
   try {
     const stats = await runLoadTest(config, apiUrl);
