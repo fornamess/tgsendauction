@@ -138,8 +138,8 @@ describe('RoundService', () => {
       await Round.updateMany({ status: RoundStatus.ACTIVE }, { status: RoundStatus.ENDED });
       
       // Очищаем кеш, чтобы получить актуальные данные
-      const { roundCache } = await import('../services/RoundService');
-      roundCache.clear();
+      const { roundCache } = await import('../utils/redisCache');
+      await roundCache.clear();
 
       const current = await RoundService.getCurrentRound();
 
@@ -157,8 +157,8 @@ describe('RoundService', () => {
       await RoundService.endRound(roundId);
       
       // Очищаем кеш после завершения раунда
-      const { roundCache } = await import('../services/RoundService');
-      roundCache.clear();
+      const { roundCache } = await import('../utils/redisCache');
+      await roundCache.clear();
 
       const current = await RoundService.getCurrentRound();
 

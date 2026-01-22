@@ -60,12 +60,14 @@ export const connectRedis = async (): Promise<Redis | null> => {
       logger.info('✅ Redis подключен и готов', { url: redisUrl.replace(/\/\/.*@/, '//***@') });
       return redisClient;
     } catch (pingError) {
-      logger.warn('⚠️ Redis ping не прошел, продолжаем без Redis', pingError);
+      const errorObj = pingError instanceof Error ? pingError : new Error(String(pingError));
+      logger.warn('⚠️ Redis ping не прошел, продолжаем без Redis', errorObj);
       // Не бросаем ошибку, продолжаем без Redis (graceful degradation)
       return null;
     }
   } catch (error) {
-    logger.warn('⚠️ Ошибка подключения к Redis, продолжаем без Redis', error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    logger.warn('⚠️ Ошибка подключения к Redis, продолжаем без Redis', errorObj);
     // Не бросаем ошибку, продолжаем без Redis (graceful degradation)
     return null;
   }

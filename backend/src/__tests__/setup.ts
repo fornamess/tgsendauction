@@ -20,15 +20,15 @@ beforeAll(async () => {
 afterEach(async () => {
   // Очищаем кеши перед очисткой данных
   try {
-    // Очищаем кеш RoundService
-    const { roundCache } = await import('../services/RoundService');
+    // Очищаем кеш RoundService (теперь из redisCache)
+    const { roundCache } = await import('../utils/redisCache');
     if (roundCache && typeof roundCache.clear === 'function') {
-      roundCache.clear();
+      await roundCache.clear();
     }
-    // Очищаем кеш AuctionService
-    const { auctionCache } = await import('../services/AuctionService');
+    // Очищаем кеш AuctionService (теперь из redisCache)
+    const { auctionCache } = await import('../utils/redisCache');
     if (auctionCache && typeof auctionCache.clear === 'function') {
-      auctionCache.clear();
+      await auctionCache.clear();
     }
   } catch (error) {
     // Игнорируем ошибки очистки кеша

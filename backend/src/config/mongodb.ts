@@ -1,4 +1,4 @@
-import { MongoClient, Db, MongoClientOptions } from 'mongodb';
+import { Db, MongoClient, MongoClientOptions } from 'mongodb';
 import { logger } from '../utils/logger';
 
 let mongoClient: MongoClient | null = null;
@@ -25,15 +25,15 @@ export const connectMongoDB = async (): Promise<Db> => {
 
     mongoClient = new MongoClient(mongoUri, options);
     await mongoClient.connect();
-    
+
     mongoDb = mongoClient.db(dbName);
-    
+
     // Проверяем подключение
     await mongoDb.admin().ping();
-    
-    logger.info('✅ MongoDB (native driver) подключена', { 
+
+    logger.info('✅ MongoDB (native driver) подключена', {
       uri: mongoUri.replace(/\/\/.*@/, '//***@'), // Скрываем credentials в логах
-      dbName 
+      dbName
     });
 
     return mongoDb;

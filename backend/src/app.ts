@@ -8,11 +8,10 @@ import path from 'path';
 import { connectDatabase } from './config/database';
 import { connectMongoDB } from './config/mongodb';
 import { connectRedis } from './config/redis';
-import { initializeMongoIndexes } from './models/mongodb';
 import { startScheduler } from './jobs/scheduler';
-import { apiLimiter } from './middleware/rateLimitSimple';
 import { apiLimiterRedis } from './middleware/rateLimitRedis';
 import { logSuspiciousActivity, sanitizeInput, validatePayloadSize } from './middleware/security';
+import { initializeMongoIndexes } from './models/mongodb';
 import { auctionRoutes } from './routes/auction.routes';
 import { betRoutes } from './routes/bet.routes';
 import { roundRoutes } from './routes/round.routes';
@@ -21,7 +20,7 @@ import { userRoutes } from './routes/user.routes';
 import { errorHandler } from './utils/errors';
 import { logger } from './utils/logger';
 import { getMetricsSnapshot } from './utils/metrics';
-import { performanceMiddleware, getPerformanceMetrics, getMemoryMetrics } from './utils/performance';
+import { getMemoryMetrics, getPerformanceMetrics, performanceMiddleware } from './utils/performance';
 
 // Загружаем переменные окружения
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -44,21 +43,21 @@ app.use(
 // Middleware безопасности - CORS с whitelist
 const getAllowedOrigins = (): string[] => {
   const origins: string[] = [];
-  
+
   // Telegram домены
   origins.push(
     'https://web.telegram.org',
     'https://telegram.org',
     'https://t.me'
   );
-  
+
   // Amvera домены
   origins.push(
     'https://ygth-romansf.waw0.amvera.tech',
     'https://amvera.tech',
     'https://amvera.ru'
   );
-  
+
   // Development
   if (process.env.NODE_ENV !== 'production') {
     origins.push(
@@ -68,13 +67,13 @@ const getAllowedOrigins = (): string[] => {
       'http://127.0.0.1:3000'
     );
   }
-  
+
   // Дополнительные origins из переменных окружения
   if (process.env.ALLOWED_ORIGINS) {
     const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
     origins.push(...envOrigins);
   }
-  
+
   return [...new Set(origins)]; // Убираем дубликаты
 };
 
@@ -84,7 +83,7 @@ const corsOptions = {
     callback: (err: Error | null, allow?: boolean) => void
   ) {
     const allowedOrigins = getAllowedOrigins();
-    
+
     // Разрешаем запросы без origin только в development (мобильные приложения, Postman)
     if (!origin) {
       if (process.env.NODE_ENV === 'production') {
@@ -197,7 +196,7 @@ app.get('/metrics', (req, res) => {
   const performanceMetrics = getPerformanceMetrics();
   const memoryMetrics = getMemoryMetrics();
   const appMetrics = getMetricsSnapshot();
-  
+
   res.json({
     ...appMetrics,
     performance: performanceMetrics,
@@ -214,19 +213,24 @@ const startServer = async () => {
   try {
     // Подключаем MongoDB (Mongoose для обратной совместимости)
     await connectDatabase();
-    
+
     // Подключаем MongoDB native driver (для новых сервисов)
     try {
       await connectMongoDB();
       await initializeMongoIndexes();
     } catch (error) {
-      logger.warn('⚠️ MongoDB native driver недоступен, используем только Mongoose', error);
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      logger.warn('⚠️ MongoDB native driver недоступен, используем только Mongoose', errorObj);
     }
-    
+
     // Подключаем Redis (graceful degradation - продолжаем без Redis если недоступен)
-    const redisClient = await connectRedis();
-    if (!redisClient) {
-      logger.warn('⚠️ Redis недоступен, работаем без кеширования и распределенного rate limiting');
+    try {
+      const redisClient = await connectRedis();
+      if (!redisClient) {
+        logger.warn('⚠️ Redis недоступен, работаем без кеширования и распределенного rate limiting');
+      }
+    } catch (error) {
+      logger.warn('⚠️ Ошибка подключения к Redis, работаем без кеширования', error instanceof Error ? error : new Error(String(error)));
     }
 
     const server: Server = app.listen(PORT, '0.0.0.0', () => {
