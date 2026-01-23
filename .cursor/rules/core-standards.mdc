@@ -1,0 +1,30 @@
+---
+description: Core coding standards for security, performance, and testing
+alwaysApply: true
+---
+
+# Core Standards
+
+- Validate inputs at boundaries; never trust client data.
+- Enforce authn/authz server-side on every sensitive action.
+- Avoid N+1 queries and unbounded reads; paginate and batch.
+- Keep request paths non-blocking; push heavy work to jobs.
+- Handle errors explicitly; log with context, avoid secrets.
+- Add tests for new behavior, edge cases, and failure modes.
+
+## Example: Error Handling
+
+```typescript
+// ❌ BAD
+try {
+  await service.run();
+} catch {}
+
+// ✅ GOOD
+try {
+  await service.run();
+} catch (error) {
+  logger.error("Service failed", { error });
+  throw error;
+}
+```
