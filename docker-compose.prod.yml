@@ -32,7 +32,7 @@ services:
       MONGODB_URI: mongodb://localhost:27017/auction_db
       REDIS_URL: redis://redis:6379
       TELEGRAM_BOT_TOKEN: 8090299133:AAHL83f8hxEPwtc_iv8CH9cGQqmcHmRtHfk
-      ALLOWED_ORIGINS: https://web.telegram.org,https://t.me
+      ALLOWED_ORIGINS: https://web.telegram.org,https://t.me,http://localhost,http://127.0.0.1,https://ygth-romansf.waw0.amvera.tech
     depends_on:
       redis:
         condition: service_healthy

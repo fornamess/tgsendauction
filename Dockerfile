@@ -70,8 +70,10 @@ RUN echo '[program:mongodb]' > /etc/supervisor/conf.d/mongodb.conf && \
     echo 'command=/bin/bash -c "mkdir -p /data/db && chmod 755 /data/db && /usr/bin/mongod --bind_ip_all --dbpath /data/db --noauth"' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'autostart=true' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/mongodb.conf && \
-    echo 'stderr_logfile=/var/log/mongodb.err.log' >> /etc/supervisor/conf.d/mongodb.conf && \
-    echo 'stdout_logfile=/var/log/mongodb.out.log' >> /etc/supervisor/conf.d/mongodb.conf && \
+    echo 'stderr_logfile=/dev/stderr' >> /etc/supervisor/conf.d/mongodb.conf && \
+    echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/mongodb.conf && \
+    echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/mongodb.conf && \
+    echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'priority=10' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'user=root' >> /etc/supervisor/conf.d/mongodb.conf && \
     echo 'startsecs=5' >> /etc/supervisor/conf.d/mongodb.conf
@@ -91,8 +93,10 @@ RUN echo '[program:backend]' > /etc/supervisor/conf.d/backend.conf && \
     echo 'directory=/app/backend' >> /etc/supervisor/conf.d/backend.conf && \
     echo 'autostart=true' >> /etc/supervisor/conf.d/backend.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/backend.conf && \
-    echo 'stderr_logfile=/var/log/backend.err.log' >> /etc/supervisor/conf.d/backend.conf && \
-    echo 'stdout_logfile=/var/log/backend.out.log' >> /etc/supervisor/conf.d/backend.conf && \
+    echo 'stderr_logfile=/dev/stderr' >> /etc/supervisor/conf.d/backend.conf && \
+    echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/backend.conf && \
+    echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/backend.conf && \
+    echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/backend.conf && \
     echo 'environment=NODE_ENV="production",PORT="3000",MONGODB_URI="mongodb://localhost:27017/auction_db",TELEGRAM_BOT_TOKEN="8090299133:AAHL83f8hxEPwtc_iv8CH9cGQqmcHmRtHfk"' >> /etc/supervisor/conf.d/backend.conf && \
     echo 'priority=20' >> /etc/supervisor/conf.d/backend.conf
 
@@ -101,8 +105,10 @@ RUN echo '[program:nginx]' > /etc/supervisor/conf.d/nginx.conf && \
     echo 'command=/usr/sbin/nginx -g "daemon off;"' >> /etc/supervisor/conf.d/nginx.conf && \
     echo 'autostart=true' >> /etc/supervisor/conf.d/nginx.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/nginx.conf && \
-    echo 'stderr_logfile=/var/log/nginx.err.log' >> /etc/supervisor/conf.d/nginx.conf && \
-    echo 'stdout_logfile=/var/log/nginx.out.log' >> /etc/supervisor/conf.d/nginx.conf && \
+    echo 'stderr_logfile=/dev/stderr' >> /etc/supervisor/conf.d/nginx.conf && \
+    echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/nginx.conf && \
+    echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/nginx.conf && \
+    echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/nginx.conf && \
     echo 'priority=30' >> /etc/supervisor/conf.d/nginx.conf
 
 # Создаем директорию для MongoDB данных с правильными правами

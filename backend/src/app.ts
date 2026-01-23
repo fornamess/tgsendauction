@@ -84,13 +84,14 @@ const corsOptions = {
   ) {
     const allowedOrigins = getAllowedOrigins();
 
-    // Разрешаем запросы без origin только в development (мобильные приложения, Postman)
-    if (!origin) {
-      if (process.env.NODE_ENV === 'production') {
-        return callback(new Error('CORS: Origin не указан'), false);
-      }
-      return callback(null, true);
+  // Разрешаем запросы без origin (same-origin или сервер-сервер).
+  // В production просто логируем, т.к. CORS применяется браузером.
+  if (!origin) {
+    if (process.env.NODE_ENV === 'production') {
+      logger.warn('CORS: Origin не указан, запрос разрешен', { path: 'cors-origin-check' });
     }
+    return callback(null, true);
+  }
 
     // Проверяем точное совпадение (без includes для безопасности)
     if (allowedOrigins.includes(origin)) {
