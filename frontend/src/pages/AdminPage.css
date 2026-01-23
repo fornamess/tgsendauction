@@ -148,8 +148,9 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   box-shadow: var(--shadow-sm);
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
 }
 
 .auction-actions button:first-child {
@@ -257,4 +258,76 @@
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
+}
+
+/* Mobile Responsive - AdminPage */
+@media (max-width: 768px) {
+  .admin-page {
+    max-width: none;
+  }
+  
+  .admin-page h1 {
+    font-size: 1.75rem;
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .auction-management,
+  .create-auction {
+    padding: var(--spacing-lg);
+  }
+  
+  .auction-management h2,
+  .create-auction h2 {
+    font-size: var(--text-xl);
+  }
+  
+  .auction-info {
+    padding: var(--spacing-md);
+  }
+  
+  .auction-info strong {
+    min-width: 100px;
+  }
+  
+  .auction-actions {
+    flex-direction: column;
+  }
+  
+  .auction-actions button {
+    width: 100%;
+  }
+  
+  .form-group input {
+    width: 100%;
+  }
+  
+  .create-auction button {
+    width: 100%;
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-page h1 {
+    font-size: 1.5rem;
+  }
+  
+  .auction-management,
+  .create-auction {
+    padding: var(--spacing-md);
+  }
+  
+  .auction-management h2,
+  .create-auction h2 {
+    font-size: var(--text-lg);
+  }
+  
+  .auction-info > div {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .status-hint {
+    font-size: 0.813rem;
+  }
 }

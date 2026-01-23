@@ -91,7 +91,7 @@
   background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-tertiary) 100%);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-gold);
-  min-width: 200px;
+  min-width: 0;
   box-shadow: var(--shadow-card);
 }
 
@@ -266,5 +266,59 @@
   
   .time-left .value {
     font-size: var(--text-2xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .auction-display {
+    gap: var(--spacing-md);
+  }
+  
+  .round-header {
+    padding: var(--spacing-md);
+  }
+  
+  .round-header h1 {
+    font-size: var(--text-xl);
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .time-left {
+    padding: var(--spacing-md);
+  }
+  
+  .time-left .value {
+    font-size: var(--text-xl);
+  }
+  
+  .time-left .label {
+    font-size: 0.75rem;
+  }
+  
+  .bet-section,
+  .top-bets-section {
+    padding: var(--spacing-md);
+  }
+  
+  .top-bets-section h2 {
+    font-size: var(--text-lg);
+  }
+  
+  .user-rank {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-xs);
+  }
+  
+  .anti-sniping-notification {
+    padding: var(--spacing-sm);
+    font-size: 14px;
+  }
+  
+  .loading,
+  .error,
+  .no-round {
+    padding: var(--spacing-xl);
+    font-size: var(--text-base);
   }
 }

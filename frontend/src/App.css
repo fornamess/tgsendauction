@@ -92,8 +92,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .user-info button:hover {
@@ -114,7 +114,8 @@
   box-shadow: var(--shadow-card);
   border: 1px solid var(--border-color);
   z-index: 1000;
-  min-width: 280px;
+  width: 280px;
+  max-width: calc(100vw - 32px);
   color: var(--text-primary);
   animation: fadeIn var(--transition-base);
 }
@@ -285,4 +286,73 @@ main {
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--accent-primary);
+}
+
+/* Mobile Responsive - App */
+@media (max-width: 768px) {
+  .App-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+  
+  .App-header nav {
+    gap: var(--spacing-sm);
+  }
+  
+  .App-header nav a {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 14px;
+  }
+  
+  main {
+    padding: var(--spacing-md);
+  }
+  
+  .user-switcher-menu {
+    right: -8px;
+  }
+  
+  .error-content h1 {
+    font-size: 24px;
+  }
+  
+  .telegram-button {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: 15px;
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  .App-header {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .App-header nav {
+    gap: var(--spacing-xs);
+  }
+  
+  .App-header nav a {
+    font-size: 13px;
+    padding: var(--spacing-xs);
+  }
+  
+  .user-info span {
+    display: none;
+  }
+  
+  main {
+    padding: var(--spacing-sm);
+  }
+  
+  .error-content {
+    padding: var(--spacing-md);
+  }
+  
+  .error-content h1 {
+    font-size: 20px;
+  }
+  
+  .error-message {
+    font-size: 14px;
+  }
 }

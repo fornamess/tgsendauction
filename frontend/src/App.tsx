@@ -4,7 +4,7 @@ import './App.css';
 import AdminPage from './pages/AdminPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
-import { getTelegramUser, getTelegramWebApp, isTelegramWebApp } from './utils/telegram';
+import { getTelegramUser, isTelegramWebApp } from './utils/telegram';
 
 interface TelegramUserInfo {
   id: number;

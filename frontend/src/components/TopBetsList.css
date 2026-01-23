@@ -1,5 +1,5 @@
 .top-bets-list {
-  max-height: 600px;
+  max-height: 70vh;
   overflow-y: auto;
   padding-right: var(--spacing-sm);
 }
@@ -218,7 +218,7 @@
   border: 1px solid var(--border-gold);
   visibility: visible !important;
   opacity: 1 !important;
-  min-width: 100px;
+  min-width: 0;
   text-align: right;
   box-shadow: var(--shadow-sm);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
@@ -272,6 +272,10 @@
 }
 
 @media (max-width: 768px) {
+  .top-bets-list {
+    max-height: 60vh;
+  }
+  
   .bet-item {
     grid-template-columns: 50px 1fr auto;
     gap: var(--spacing-sm);
@@ -295,5 +299,45 @@
     font-size: 1.25rem;
     top: -5px;
     right: -5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-bets-list {
+    max-height: 50vh;
+  }
+  
+  .bet-item {
+    grid-template-columns: 40px 1fr auto;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .bet-rank {
+    width: 36px;
+    height: 36px;
+    font-size: 0.875rem;
+  }
+  
+  .bet-user {
+    font-size: 0.875rem;
+  }
+  
+  .bet-amount {
+    font-size: var(--text-sm);
+    padding: var(--spacing-xs);
+  }
+  
+  .empty {
+    padding: var(--spacing-xl);
+    font-size: 1rem;
+  }
+  
+  .bet-item.top-1::after,
+  .bet-item.top-2::after,
+  .bet-item.top-3::after {
+    font-size: 1rem;
+    top: -4px;
+    right: -4px;
   }
 }

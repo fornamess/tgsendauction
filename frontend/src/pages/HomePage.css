@@ -100,3 +100,49 @@
   font-size: 1rem;
   line-height: 1.6;
 }
+
+/* Mobile Responsive - HomePage */
+@media (max-width: 768px) {
+  .home-page {
+    gap: var(--spacing-lg);
+  }
+  
+  .auction-info {
+    padding: var(--spacing-lg);
+  }
+  
+  .auction-info h2 {
+    font-size: var(--text-2xl);
+  }
+  
+  .prize-info {
+    font-size: 1rem;
+  }
+  
+  .prize-info strong {
+    font-size: var(--text-lg);
+  }
+  
+  .loading,
+  .no-auction {
+    padding: var(--spacing-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .home-page {
+    gap: var(--spacing-md);
+  }
+  
+  .auction-info {
+    padding: var(--spacing-md);
+  }
+  
+  .auction-info h2 {
+    font-size: var(--text-xl);
+  }
+  
+  .no-auction h2 {
+    font-size: var(--text-lg);
+  }
+}

@@ -41,8 +41,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 150px;
+  min-width: 0;
   padding: var(--spacing-lg);
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
@@ -321,4 +321,97 @@
   box-shadow: var(--shadow-card);
   color: #ef4444;
   font-weight: 600;
+}
+
+/* Mobile Responsive - ProfilePage */
+@media (max-width: 768px) {
+  .profile-page {
+    gap: var(--spacing-lg);
+  }
+  
+  .profile-header {
+    padding: var(--spacing-lg);
+  }
+  
+  .profile-header h1 {
+    font-size: var(--text-2xl);
+  }
+  
+  .user-balance {
+    gap: var(--spacing-md);
+  }
+  
+  .balance-item {
+    flex: 1 1 100%;
+    padding: var(--spacing-md);
+  }
+  
+  .balance-item .value {
+    font-size: var(--text-2xl);
+  }
+  
+  .deposit-section,
+  .bets-section,
+  .transactions-section {
+    padding: var(--spacing-lg);
+  }
+  
+  .deposit-section h2,
+  .bets-section h2,
+  .transactions-section h2 {
+    font-size: var(--text-xl);
+  }
+  
+  .deposit-section form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .deposit-section input {
+    max-width: none;
+    width: 100%;
+  }
+  
+  .deposit-section button {
+    width: 100%;
+    min-height: 48px;
+  }
+  
+  .bet-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+  
+  .bet-info {
+    gap: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-header {
+    padding: var(--spacing-md);
+  }
+  
+  .profile-header h1 {
+    font-size: var(--text-xl);
+  }
+  
+  .balance-item .value {
+    font-size: var(--text-xl);
+  }
+  
+  .deposit-section,
+  .bets-section,
+  .transactions-section {
+    padding: var(--spacing-md);
+  }
+  
+  .empty {
+    padding: var(--spacing-xl);
+  }
+  
+  .transaction-amount {
+    font-size: 1rem;
+  }
 }

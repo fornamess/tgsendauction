@@ -155,6 +155,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   transition: all var(--transition-base);
+  min-height: 44px;
 }
 
 .quick-buttons button:hover:not(:disabled) {
@@ -185,6 +186,7 @@
   cursor: pointer;
   transition: all var(--transition-base);
   box-shadow: var(--shadow-gold), inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+  min-height: 48px;
 }
 
 .submit-button:hover:not(:disabled) {
@@ -249,5 +251,55 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Mobile Responsive - BetForm */
+@media (max-width: 768px) {
+  .bet-form {
+    gap: var(--spacing-lg);
+  }
+  
+  .bet-form h3 {
+    font-size: var(--text-xl);
+  }
+  
+  .quick-buttons {
+    flex-wrap: wrap;
+  }
+  
+  .quick-buttons button {
+    flex: 1 1 calc(50% - var(--spacing-xs));
+    font-size: 13px;
+  }
+  
+  .current-bet strong {
+    font-size: var(--text-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  .bet-form {
+    gap: var(--spacing-md);
+  }
+  
+  .bet-form h3 {
+    font-size: var(--text-lg);
+  }
+  
+  .bet-input {
+    padding: var(--spacing-sm);
+    font-size: var(--text-base);
+  }
+  
+  .quick-buttons button {
+    flex: 1 1 calc(50% - var(--spacing-xs));
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 12px;
+  }
+  
+  .submit-button {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 15px;
   }
 }

@@ -139,3 +139,33 @@ code {
   background: var(--gradient-gold-shine);
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
 }
+
+/* Mobile responsive variables */
+@media (max-width: 768px) {
+  :root {
+    --spacing-xl: 16px;
+    --spacing-lg: 12px;
+    --spacing-2xl: 24px;
+    --text-3xl: 1.5rem;
+    --text-4xl: 1.75rem;
+  }
+  
+  body {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --spacing-xl: 12px;
+    --spacing-lg: 8px;
+    --spacing-2xl: 20px;
+    --text-2xl: 1.25rem;
+    --text-3xl: 1.375rem;
+    --text-4xl: 1.5rem;
+  }
+  
+  body {
+    font-size: 14px;
+  }
+}
