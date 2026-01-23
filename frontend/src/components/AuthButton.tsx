@@ -10,13 +10,13 @@ function AuthButton() {
     return null;
   }
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (inTelegram) {
       // В Telegram - данные должны быть доступны
-      login();
+      await login();
     } else {
-      // Вне Telegram - открываем бота
-      window.open('https://t.me/RobuxAuction_bot?start=webapp', '_blank');
+      // Вне Telegram - генерируем токен и перенаправляем в бота
+      await login();
     }
   };
 

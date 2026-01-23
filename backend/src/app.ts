@@ -12,6 +12,7 @@ import { startScheduler } from './jobs/scheduler';
 import { apiLimiterRedis } from './middleware/rateLimitRedis';
 import { logSuspiciousActivity, sanitizeInput, validatePayloadSize } from './middleware/security';
 import { initializeMongoIndexes } from './models/mongodb';
+import { authRoutes } from './routes/auth.routes';
 import { auctionRoutes } from './routes/auction.routes';
 import { betRoutes } from './routes/bet.routes';
 import { roundRoutes } from './routes/round.routes';
@@ -141,6 +142,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/auction', auctionRoutes);
 app.use('/api/round', roundRoutes);
 app.use('/api/bet', betRoutes);

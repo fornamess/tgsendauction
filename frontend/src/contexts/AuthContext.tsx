@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getTelegramUser, isTelegramWebApp } from '../utils/telegram';
+import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { getTelegramUser, isTelegramWebApp, getTelegramInitData } from '../utils/telegram';
+import api from '../utils/api';
 
 interface TelegramUserInfo {
   id: number;
@@ -13,7 +14,7 @@ interface AuthContextType {
   user: TelegramUserInfo | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: () => void;
+  login: () => Promise<void>;
   logout: () => void;
 }
 
@@ -24,23 +25,95 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Проверяем, запущено ли в Telegram Mini App
-    if (isTelegramWebApp()) {
-      const tgUser = getTelegramUser();
-      if (tgUser) {
-        setUser({
-          id: tgUser.id,
-          firstName: tgUser.first_name,
-          lastName: tgUser.last_name,
-          username: tgUser.username,
-          photoUrl: tgUser.photo_url,
-        });
-      }
-    }
-    setIsLoading(false);
+    checkAuth();
   }, []);
 
-  const login = () => {
+  const checkAuth = async () => {
+    try {
+      // Проверяем, запущено ли в Telegram Mini App
+      if (isTelegramWebApp()) {
+        const tgUser = getTelegramUser();
+        if (tgUser) {
+          setUser({
+            id: tgUser.id,
+            firstName: tgUser.first_name,
+            lastName: tgUser.last_name,
+            username: tgUser.username,
+            photoUrl: tgUser.photo_url,
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Если в Telegram, но нет данных пользователя, проверяем токен из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('start') || urlParams.get('token') || localStorage.getItem('auth_token');
+        
+        if (token) {
+          await verifyToken(token);
+        }
+      } else {
+        // Вне Telegram - проверяем токен из URL или localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('start') || urlParams.get('token');
+        const storedToken = localStorage.getItem('auth_token');
+        
+        // Если есть токен в URL, но нет Telegram WebApp, значит пользователь еще не авторизован
+        // Просто очищаем токен из URL
+        if (urlToken && !isTelegramWebApp()) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('start');
+          url.searchParams.delete('token');
+          window.history.replaceState({}, '', url.toString());
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка проверки авторизации:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyToken = async (token: string) => {
+    try {
+      // Проверяем, что мы в Telegram WebApp
+      if (!isTelegramWebApp()) {
+        throw new Error('Верификация токена возможна только в Telegram WebApp');
+      }
+
+      const initData = getTelegramInitData();
+      if (!initData) {
+        throw new Error('Telegram данные не доступны');
+      }
+
+      const response = await api.post('/api/auth/verify-token', { token });
+      
+      if (response.data.success && response.data.user) {
+        const userData = response.data.user;
+        setUser({
+          id: userData.telegramId,
+          firstName: userData.firstName || '',
+          lastName: userData.lastName,
+          username: userData.username,
+          photoUrl: userData.photoUrl,
+        });
+        
+        // Удаляем токен из localStorage и URL
+        localStorage.removeItem('auth_token');
+        const url = new URL(window.location.href);
+        url.searchParams.delete('start');
+        url.searchParams.delete('token');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (error) {
+      console.error('Ошибка верификации токена:', error);
+      // Удаляем невалидный токен
+      localStorage.removeItem('auth_token');
+      throw error;
+    }
+  };
+
+  const login = async () => {
     // Если в Telegram, данные уже должны быть загружены
     if (isTelegramWebApp()) {
       const tgUser = getTelegramUser();
@@ -52,15 +125,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: tgUser.username,
           photoUrl: tgUser.photo_url,
         });
+        return;
       }
-    } else {
-      // Вне Telegram - открываем бота
-      window.open('https://t.me/RobuxAuction_bot?start=webapp', '_blank');
+    }
+
+    // Генерируем токен и перенаправляем в бота
+    try {
+      const response = await api.post('/api/auth/generate-token');
+      const { token } = response.data;
+      
+      if (!token) {
+        throw new Error('Токен не получен');
+      }
+      
+      // Сохраняем токен в localStorage на случай, если пользователь вернется
+      localStorage.setItem('auth_token', token);
+      
+      // Перенаправляем в бота с токеном
+      // Бот должен отправить пользователя обратно на сайт через Telegram WebApp
+      window.location.href = `https://t.me/RobuxAuction_bot?start=${token}`;
+    } catch (error) {
+      console.error('Ошибка генерации токена:', error);
+      // Fallback: открываем бота без токена
+      alert('Ошибка авторизации. Попробуйте открыть бота вручную: @RobuxAuction_bot');
+      window.open('https://t.me/RobuxAuction_bot', '_blank');
     }
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('auth_token');
   };
 
   const isAuthenticated = !!user;
