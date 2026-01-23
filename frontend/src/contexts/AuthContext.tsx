@@ -1,6 +1,6 @@
 import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
-import { getTelegramUser, isTelegramWebApp, getTelegramInitData } from '../utils/telegram';
 import api from '../utils/api';
+import { getTelegramInitData, getTelegramUser, isTelegramWebApp } from '../utils/telegram';
 
 interface TelegramUserInfo {
   id: number;
@@ -48,16 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Если в Telegram, но нет данных пользователя, проверяем токен из URL
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('start') || urlParams.get('token') || localStorage.getItem('auth_token');
-        
+
         if (token) {
           await verifyToken(token);
         }
       } else {
-        // Вне Telegram - проверяем токен из URL или localStorage
+        // Вне Telegram - проверяем токен из URL
         const urlParams = new URLSearchParams(window.location.search);
         const urlToken = urlParams.get('start') || urlParams.get('token');
-        const storedToken = localStorage.getItem('auth_token');
-        
+
         // Если есть токен в URL, но нет Telegram WebApp, значит пользователь еще не авторизован
         // Просто очищаем токен из URL
         if (urlToken && !isTelegramWebApp()) {
@@ -87,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const response = await api.post('/api/auth/verify-token', { token });
-      
+
       if (response.data.success && response.data.user) {
         const userData = response.data.user;
         setUser({
@@ -97,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: userData.username,
           photoUrl: userData.photoUrl,
         });
-        
+
         // Удаляем токен из localStorage и URL
         localStorage.removeItem('auth_token');
         const url = new URL(window.location.href);
@@ -133,14 +132,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.post('/api/auth/generate-token');
       const { token } = response.data;
-      
+
       if (!token) {
         throw new Error('Токен не получен');
       }
-      
+
       // Сохраняем токен в localStorage на случай, если пользователь вернется
       localStorage.setItem('auth_token', token);
-      
+
       // Перенаправляем в бота с токеном
       // Бот должен отправить пользователя обратно на сайт через Telegram WebApp
       window.location.href = `https://t.me/RobuxAuction_bot?start=${token}`;
