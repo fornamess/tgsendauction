@@ -55,9 +55,9 @@ export class AuctionService {
         async () => {
           const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE })
             .maxTimeMS(5000) // Таймаут запроса к БД - 5 секунд
-            .lean<IAuction>() // Возвращаем plain object для быстроты
+            .lean() // Возвращаем plain object для быстроты
             .exec();
-          return auction;
+          return auction as IAuction | null;
         },
         30000 // 30 секунд TTL - уменьшаем нагрузку на БД
       );

@@ -84,20 +84,20 @@ export class RoundService {
             // Найти активный аукцион
             const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE })
               .maxTimeMS(3000)
-              .lean<IAuction>()
+              .lean()
               .exec();
             if (!auction) {
               return null;
             }
-            query.auctionId = auction._id;
+            query.auctionId = auction._id as mongoose.Types.ObjectId;
           }
 
           const round = await Round.findOne(query)
             .populate('auctionId')
             .maxTimeMS(5000) // Таймаут запроса
-            .lean<IRound>() // Быстрее
+            .lean() // Быстрее
             .exec();
-          return round;
+          return round as IRound | null;
         },
         30000 // 30 секунд TTL для снижения нагрузки
       );
