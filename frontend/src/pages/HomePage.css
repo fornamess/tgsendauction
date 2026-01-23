@@ -106,44 +106,26 @@
   .home-page {
     gap: var(--spacing-lg);
   }
-  
+
   .auction-info {
     padding: var(--spacing-lg);
-    border-radius: var(--radius-lg);
   }
-  
+
   .auction-info h2 {
     font-size: var(--text-2xl);
-    margin-bottom: var(--spacing-sm);
-    line-height: 1.2;
   }
-  
+
   .prize-info {
-    font-size: 0.95rem;
-    line-height: 1.5;
+    font-size: 1rem;
   }
-  
+
   .prize-info strong {
     font-size: var(--text-lg);
-    display: inline-block;
   }
-  
+
   .loading,
   .no-auction {
     padding: var(--spacing-xl);
-    border-radius: var(--radius-lg);
-  }
-  
-  .loading {
-    font-size: 1rem;
-  }
-  
-  .no-auction h2 {
-    font-size: var(--text-xl);
-  }
-  
-  .no-auction p {
-    font-size: 0.9rem;
   }
 }
 
@@ -151,50 +133,16 @@
   .home-page {
     gap: var(--spacing-md);
   }
-  
+
   .auction-info {
     padding: var(--spacing-md);
-    border-radius: var(--radius-md);
   }
-  
+
   .auction-info h2 {
     font-size: var(--text-xl);
-    margin-bottom: var(--spacing-sm);
   }
-  
-  .prize-info {
-    font-size: 0.875rem;
-    line-height: 1.6;
-  }
-  
-  .prize-info strong {
-    font-size: var(--text-base);
-  }
-  
-  .loading,
-  .no-auction {
-    padding: var(--spacing-lg);
-    border-radius: var(--radius-md);
-  }
-  
-  .loading {
-    font-size: 0.9rem;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-  
-  .loading::before {
-    width: 20px;
-    height: 20px;
-  }
-  
+
   .no-auction h2 {
     font-size: var(--text-lg);
-    margin-bottom: var(--spacing-sm);
-  }
-  
-  .no-auction p {
-    font-size: 0.85rem;
-    line-height: 1.5;
   }
 }

@@ -260,81 +260,47 @@
   transform: none;
 }
 
-.no-access {
-  text-align: center;
-  padding: var(--spacing-2xl);
-  background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-gold);
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-}
-
-.no-access h2 {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  background: var(--gradient-gold);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
-}
-
-.no-access p {
-  color: var(--text-secondary);
-  font-size: var(--text-base);
-  margin: 0;
-  line-height: 1.6;
-}
-
 /* Mobile Responsive - AdminPage */
 @media (max-width: 768px) {
   .admin-page {
     max-width: none;
   }
-  
+
   .admin-page h1 {
     font-size: 1.75rem;
     margin-bottom: var(--spacing-lg);
   }
-  
+
   .auction-management,
   .create-auction {
     padding: var(--spacing-lg);
   }
-  
+
   .auction-management h2,
   .create-auction h2 {
     font-size: var(--text-xl);
   }
-  
+
   .auction-info {
     padding: var(--spacing-md);
   }
-  
+
   .auction-info strong {
     min-width: 100px;
   }
-  
+
   .auction-actions {
     flex-direction: column;
   }
-  
+
   .auction-actions button {
     width: 100%;
   }
-  
+
   .form-group input {
     width: 100%;
   }
-  
+
   .create-auction button {
     width: 100%;
     min-height: 48px;
@@ -345,22 +311,22 @@
   .admin-page h1 {
     font-size: 1.5rem;
   }
-  
+
   .auction-management,
   .create-auction {
     padding: var(--spacing-md);
   }
-  
+
   .auction-management h2,
   .create-auction h2 {
     font-size: var(--text-lg);
   }
-  
+
   .auction-info > div {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .status-hint {
     font-size: 0.813rem;
   }

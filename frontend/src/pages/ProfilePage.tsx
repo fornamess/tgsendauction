@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
-import AuthButton from '../components/AuthButton';
 import './ProfilePage.css';
 
 interface User {
@@ -35,19 +34,10 @@ interface ProfileData {
 }
 
 interface ProfilePageProps {
-  userId: string | null;
+  userId: string;
 }
 
-function ProfilePage({ userId }: ProfilePageProps) {
-  if (!userId) {
-    return (
-      <div className="no-access">
-        <h2>Требуется авторизация</h2>
-        <p>Для просмотра профиля необходимо войти через Telegram</p>
-        <AuthButton />
-      </div>
-    );
-  }
+function ProfilePage({ userId: _userId }: ProfilePageProps) {
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState<number>(10000);

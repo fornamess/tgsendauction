@@ -12,7 +12,6 @@ import { startScheduler } from './jobs/scheduler';
 import { apiLimiterRedis } from './middleware/rateLimitRedis';
 import { logSuspiciousActivity, sanitizeInput, validatePayloadSize } from './middleware/security';
 import { initializeMongoIndexes } from './models/mongodb';
-import { authRoutes } from './routes/auth.routes';
 import { auctionRoutes } from './routes/auction.routes';
 import { betRoutes } from './routes/bet.routes';
 import { roundRoutes } from './routes/round.routes';
@@ -111,7 +110,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-CSRF-Token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-CSRF-Token'],
   exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   maxAge: 86400, // 24 часа для preflight
 };
@@ -142,7 +141,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Routes
-app.use('/api/auth', authRoutes);
 app.use('/api/auction', auctionRoutes);
 app.use('/api/round', roundRoutes);
 app.use('/api/bet', betRoutes);
@@ -214,7 +212,7 @@ const startServer = async () => {
     server.headersTimeout = 66000; // 66 секунд (больше чем keepAliveTimeout)
     server.requestTimeout = 70000; // 70 секунд (максимальное время на запрос)
     server.maxHeadersCount = 100; // Максимум заголовков
-    
+
     // Увеличиваем лимит соединений
     server.maxConnections = 10000;
 
@@ -229,7 +227,7 @@ const startServer = async () => {
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
       logger.info(`${signal} получен, начинается graceful shutdown...`);
-      
+
       // Останавливаем принятие новых соединений
       server.close(() => {
         logger.info('HTTP сервер закрыт');
@@ -246,12 +244,12 @@ const startServer = async () => {
         const { disconnectDatabase } = await import('./config/database');
         await disconnectDatabase();
         logger.info('База данных отключена');
-        
+
         // Закрываем Redis
         const { disconnectRedis } = await import('./config/redis');
         await disconnectRedis();
         logger.info('Redis отключен');
-        
+
         process.exit(0);
       } catch (error) {
         logger.error('Ошибка при graceful shutdown', error);

@@ -30,7 +30,7 @@ interface CurrentRoundData {
 }
 
 interface AuctionDisplayProps {
-  userId: string | null;
+  userId: string;
 }
 
 function AuctionDisplay({ userId }: AuctionDisplayProps) {
@@ -149,12 +149,12 @@ function AuctionDisplay({ userId }: AuctionDisplayProps) {
 
         <div className="top-bets-section">
           <h2>ТОП-{topCount} ставок</h2>
-          {userId && userBet && userRank && (
+          {userBet && userRank && (
             <div className="user-rank">
               Ваша ставка: {userBet.amount} руб. - Место: #{userRank}
             </div>
           )}
-          <TopBetsList top100={top100} userBet={userId ? userBet : null} />
+          <TopBetsList top100={top100} userBet={userBet} />
         </div>
       </div>
     </div>

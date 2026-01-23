@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
-import AuthButton from '../components/AuthButton';
 import './AdminPage.css';
 
 interface Auction {
@@ -15,7 +14,7 @@ interface Auction {
 }
 
 interface AdminPageProps {
-  userId: string | null;
+  userId: string;
 }
 
 interface Round {
@@ -26,16 +25,7 @@ interface Round {
   endTime: string;
 }
 
-function AdminPage({ userId }: AdminPageProps) {
-  if (!userId) {
-    return (
-      <div className="no-access">
-        <h2>Требуется авторизация</h2>
-        <p>Для доступа к админ-панели необходимо войти через Telegram</p>
-        <AuthButton />
-      </div>
-    );
-  }
+function AdminPage({ userId: _userId }: AdminPageProps) {
   const [auction, setAuction] = useState<Auction | null>(null);
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
   const [loading, setLoading] = useState(false);

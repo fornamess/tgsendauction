@@ -15,7 +15,7 @@ export interface AuthRequest extends Request {
 
 /**
  * Middleware для получения/создания пользователя
- * Поддерживает только Telegram Mini App авторизацию (через initData)
+ * Поддерживает авторизацию через X-User-Id заголовок
  */
 export async function authMiddleware(
   req: AuthRequest,
@@ -24,36 +24,32 @@ export async function authMiddleware(
 ) {
   try {
     let userId: string | undefined;
-    let telegramUser: ReturnType<typeof validateTelegramInitData> = null;
 
-    // Проверяем Telegram Mini App initData
-    const initData = req.headers['x-telegram-init-data'] as string;
-    if (initData && process.env.TELEGRAM_BOT_TOKEN) {
-      telegramUser = validateTelegramInitData(initData, process.env.TELEGRAM_BOT_TOKEN);
-      if (telegramUser) {
-        userId = `tg_${telegramUser.id}`;
-      }
+    // Проверяем заголовок X-User-Id
+    const headerUserId = req.headers['x-user-id'] as string;
+    if (headerUserId) {
+      userId = headerUserId;
     }
 
-    // Если Telegram авторизация не сработала
+    // Если авторизация не сработала
     if (!userId) {
       // Для публичных GET-эндпоинтов разрешаем доступ без авторизации
       const fullPath = req.baseUrl + req.path;
       const isPublicEndpoint = req.method === 'GET' && (
-        req.path.includes('/api/auction') || 
-        req.path.includes('/api/round') || 
+        req.path.includes('/api/auction') ||
+        req.path.includes('/api/round') ||
         req.path.includes('/api/stats') ||
-        fullPath.includes('/api/auction') || 
-        fullPath.includes('/api/round') || 
+        fullPath.includes('/api/auction') ||
+        fullPath.includes('/api/round') ||
         fullPath.includes('/api/stats') ||
-        req.originalUrl.includes('/api/auction') || 
-        req.originalUrl.includes('/api/round') || 
+        req.originalUrl.includes('/api/auction') ||
+        req.originalUrl.includes('/api/round') ||
         req.originalUrl.includes('/api/stats')
       );
       if (isPublicEndpoint) {
         return next(); // Публичные эндпоинты
       }
-      return res.status(401).json({ error: 'Необходима авторизация через Telegram Mini App' });
+      return res.status(401).json({ error: 'Необходима авторизация. Укажите X-User-Id заголовок' });
     }
 
     // Найти или создать пользователя
@@ -66,33 +62,7 @@ export async function authMiddleware(
         robux: 0,
       };
 
-      // Если есть данные из Telegram, сохраняем их
-      if (telegramUser) {
-        userData.telegramId = telegramUser.id;
-        userData.firstName = telegramUser.firstName;
-        userData.lastName = telegramUser.lastName;
-        userData.username = telegramUser.username || userId;
-      }
-
       user = new User(userData);
-      await user.save();
-    } else if (telegramUser) {
-      // Обновляем данные Telegram, если они изменились
-      if (telegramUser.firstName && user.firstName !== telegramUser.firstName) {
-        user.firstName = telegramUser.firstName;
-      }
-      if (telegramUser.lastName && user.lastName !== telegramUser.lastName) {
-        user.lastName = telegramUser.lastName;
-      }
-      if (telegramUser.username && user.username !== telegramUser.username) {
-        user.username = telegramUser.username;
-      }
-      if (telegramUser.photoUrl && !user.photoUrl) {
-        user.photoUrl = telegramUser.photoUrl;
-      }
-      if (!user.telegramId) {
-        user.telegramId = telegramUser.id;
-      }
       await user.save();
     }
 

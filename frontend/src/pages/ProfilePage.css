@@ -323,100 +323,66 @@
   font-weight: 600;
 }
 
-.no-access {
-  text-align: center;
-  padding: var(--spacing-2xl);
-  background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-gold);
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-}
-
-.no-access h2 {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  background: var(--gradient-gold);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
-}
-
-.no-access p {
-  color: var(--text-secondary);
-  font-size: var(--text-base);
-  margin: 0;
-  line-height: 1.6;
-}
-
 /* Mobile Responsive - ProfilePage */
 @media (max-width: 768px) {
   .profile-page {
     gap: var(--spacing-lg);
   }
-  
+
   .profile-header {
     padding: var(--spacing-lg);
   }
-  
+
   .profile-header h1 {
     font-size: var(--text-2xl);
   }
-  
+
   .user-balance {
     gap: var(--spacing-md);
   }
-  
+
   .balance-item {
     flex: 1 1 100%;
     padding: var(--spacing-md);
   }
-  
+
   .balance-item .value {
     font-size: var(--text-2xl);
   }
-  
+
   .deposit-section,
   .bets-section,
   .transactions-section {
     padding: var(--spacing-lg);
   }
-  
+
   .deposit-section h2,
   .bets-section h2,
   .transactions-section h2 {
     font-size: var(--text-xl);
   }
-  
+
   .deposit-section form {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .deposit-section input {
     max-width: none;
     width: 100%;
   }
-  
+
   .deposit-section button {
     width: 100%;
     min-height: 48px;
   }
-  
+
   .bet-item {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-sm);
   }
-  
+
   .bet-info {
     gap: var(--spacing-md);
   }
@@ -426,25 +392,25 @@
   .profile-header {
     padding: var(--spacing-md);
   }
-  
+
   .profile-header h1 {
     font-size: var(--text-xl);
   }
-  
+
   .balance-item .value {
     font-size: var(--text-xl);
   }
-  
+
   .deposit-section,
   .bets-section,
   .transactions-section {
     padding: var(--spacing-md);
   }
-  
+
   .empty {
     padding: var(--spacing-xl);
   }
-  
+
   .transaction-amount {
     font-size: 1rem;
   }

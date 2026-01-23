@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosResponse } from 'axios';
 
 // В production используем относительные пути (nginx проксирует /api/ на backend)
 // В development используем localhost:3000
-const API_URL = import.meta.env.VITE_API_URL || 
+const API_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? '' : 'http://localhost:3000');
 
 const api = axios.create({
@@ -15,12 +15,11 @@ const api = axios.create({
 
 // Добавить авторизацию в заголовки для всех запросов
 api.interceptors.request.use((config) => {
-  // Проверяем, запущено ли приложение в Telegram Mini App
-  if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
-    const tg = (window as any).Telegram.WebApp;
-    const initData = tg.initData;
-    if (initData) {
-      config.headers['X-Telegram-Init-Data'] = initData;
+  // Получаем userId из localStorage
+  if (typeof window !== 'undefined') {
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+      config.headers['X-User-Id'] = userId;
     }
   }
   return config;

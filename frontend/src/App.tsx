@@ -1,60 +1,72 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import './App.css';
 import AdminPage from './pages/AdminPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import AuthButton from './components/AuthButton';
 
-function AppContent() {
-  const { user, isLoading } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const TEST_USERS = [
+  { id: 'user1', name: 'Пользователь 1' },
+  { id: 'user2', name: 'Пользователь 2' },
+  { id: 'user3', name: 'Пользователь 3' },
+  { id: 'admin', name: 'Администратор' },
+];
 
-  const userId = user ? `tg_${user.id}` : null;
-  const displayName = user?.username || (user ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}` : '');
+function App() {
+  const [userId, setUserId] = useState<string>('');
+  const [showUserSwitcher, setShowUserSwitcher] = useState(false);
 
-  if (isLoading) {
-    return (
-      <div className="App loading-screen">
-        <div className="loading-spinner"></div>
-        <p>Загрузка...</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    // Загружаем сохраненный userId из localStorage
+    const savedUserId = localStorage.getItem('userId');
+    if (savedUserId) {
+      setUserId(savedUserId);
+    } else {
+      // По умолчанию используем первого пользователя
+      const defaultUserId = TEST_USERS[0].id;
+      setUserId(defaultUserId);
+      localStorage.setItem('userId', defaultUserId);
+    }
+  }, []);
+
+  const handleUserChange = (newUserId: string) => {
+    setUserId(newUserId);
+    localStorage.setItem('userId', newUserId);
+    setShowUserSwitcher(false);
+    // Перезагружаем страницу для применения изменений
+    window.location.reload();
+  };
+
+  const currentUser = TEST_USERS.find(u => u.id === userId) || TEST_USERS[0];
 
   return (
     <BrowserRouter>
       <div className="App">
         <header className="App-header">
-          <button 
-            className="mobile-menu-toggle"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Меню"
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-          <nav className={mobileMenuOpen ? 'mobile-open' : ''}>
-            <a href="/" onClick={() => setMobileMenuOpen(false)}>Аукцион</a>
-            {user && <a href="/profile" onClick={() => setMobileMenuOpen(false)}>Профиль</a>}
-            {user && <a href="/admin" onClick={() => setMobileMenuOpen(false)}>Админ</a>}
+          <nav>
+            <a href="/">Аукцион</a>
+            <a href="/profile">Профиль</a>
+            <a href="/admin">Админ</a>
           </nav>
           <div className="user-info">
-            {user ? (
-              <>
-                {user.photoUrl && (
-                  <img 
-                    src={user.photoUrl} 
-                    alt="avatar" 
-                    className="user-avatar"
-                  />
-                )}
-                <span className="user-name">{displayName}</span>
-              </>
-            ) : (
-              <AuthButton />
+            <button
+              onClick={() => setShowUserSwitcher(!showUserSwitcher)}
+              className="user-switcher-btn"
+            >
+              {currentUser.name}
+            </button>
+            {showUserSwitcher && (
+              <div className="user-switcher-menu">
+                {TEST_USERS.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => handleUserChange(user.id)}
+                    className={userId === user.id ? 'active' : ''}
+                  >
+                    {user.name}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </header>
@@ -67,14 +79,6 @@ function AppContent() {
         </main>
       </div>
     </BrowserRouter>
-  );
-}
-
-function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
   );
 }
 

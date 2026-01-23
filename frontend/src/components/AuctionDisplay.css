@@ -234,11 +234,11 @@
   .main-content {
     grid-template-columns: 1fr;
   }
-  
+
   .round-header h1 {
     font-size: var(--text-3xl);
   }
-  
+
   .time-left .value {
     font-size: var(--text-3xl);
   }
@@ -249,52 +249,23 @@
     flex-direction: column;
     gap: var(--spacing-md);
   }
-  
+
   .time-left {
     width: 100%;
-    min-width: 0;
-  }
-  
-  .status {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .main-content {
-    gap: var(--spacing-lg);
   }
 }
 
 @media (max-width: 640px) {
-  .round-header {
-    padding: var(--spacing-lg);
-  }
-  
   .round-header h1 {
     font-size: var(--text-2xl);
-    margin-bottom: var(--spacing-md);
   }
-  
-  .time-left {
+
+  main {
     padding: var(--spacing-md);
   }
-  
+
   .time-left .value {
     font-size: var(--text-2xl);
-  }
-  
-  .time-left .label {
-    font-size: 0.8rem;
-  }
-  
-  .status {
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-size: var(--text-sm);
-  }
-  
-  .bet-section,
-  .top-bets-section {
-    padding: var(--spacing-lg);
   }
 }
 
@@ -302,74 +273,52 @@
   .auction-display {
     gap: var(--spacing-md);
   }
-  
+
   .round-header {
     padding: var(--spacing-md);
-    border-radius: var(--radius-md);
   }
-  
+
   .round-header h1 {
     font-size: var(--text-xl);
     margin-bottom: var(--spacing-md);
   }
-  
-  .round-info {
-    gap: var(--spacing-sm);
-  }
-  
+
   .time-left {
-    padding: var(--spacing-sm) var(--spacing-md);
-    width: 100%;
+    padding: var(--spacing-md);
   }
-  
+
   .time-left .value {
     font-size: var(--text-xl);
-    line-height: 1.2;
   }
-  
+
   .time-left .label {
-    font-size: 0.7rem;
-    line-height: 1.3;
-  }
-  
-  .status {
-    padding: var(--spacing-xs) var(--spacing-sm);
     font-size: 0.75rem;
-    width: 100%;
-    justify-content: center;
   }
-  
+
   .bet-section,
   .top-bets-section {
     padding: var(--spacing-md);
-    border-radius: var(--radius-md);
   }
-  
+
   .top-bets-section h2 {
     font-size: var(--text-lg);
-    margin-bottom: var(--spacing-md);
   }
-  
+
   .user-rank {
     flex-direction: column;
     text-align: center;
     gap: var(--spacing-xs);
-    padding: var(--spacing-sm);
-    font-size: var(--text-sm);
   }
-  
+
   .anti-sniping-notification {
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-size: 13px;
-    line-height: 1.4;
-    margin-bottom: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    font-size: 14px;
   }
-  
+
   .loading,
   .error,
   .no-round {
-    padding: var(--spacing-lg);
-    font-size: var(--text-sm);
-    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    font-size: var(--text-base);
   }
 }

@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
-import { useAuth } from '../contexts/AuthContext';
-import AuthButton from './AuthButton';
 import './BetForm.css';
 
 interface Bet {
@@ -10,14 +8,13 @@ interface Bet {
 }
 
 interface BetFormProps {
-  userId: string | null;
+  userId: string;
   roundId: string;
   currentBet: Bet | null;
   onBetPlaced: (extendedTime?: Date) => void;
 }
 
-function BetForm({ userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
-  const { isAuthenticated } = useAuth();
+function BetForm({ userId: _userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
   const [amount, setAmount] = useState<number>(currentBet?.amount || 1000);
   const [minAmount, setMinAmount] = useState<number>(1000);
   const [loading, setLoading] = useState(false);
@@ -77,18 +74,6 @@ function BetForm({ userId, roundId, currentBet, onBetPlaced }: BetFormProps) {
       return newAmount >= minAmount ? newAmount : minAmount;
     });
   };
-
-  if (!isAuthenticated || !userId) {
-    return (
-      <div className="bet-form">
-        <h3>Разместить ставку</h3>
-        <div className="auth-required-message">
-          <p>Для участия в аукционе необходимо авторизоваться через Telegram</p>
-          <AuthButton />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="bet-form">
