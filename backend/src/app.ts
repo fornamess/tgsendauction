@@ -110,7 +110,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-Telegram-Init-Data', 'X-CSRF-Token', 'X-Bypass-RateLimit'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-CSRF-Token'],
   exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   maxAge: 86400, // 24 часа для preflight
 };
@@ -121,44 +121,9 @@ app.use(express.json({ limit: '10mb' })); // Ограничение размер
 app.use(sanitizeInput); // Защита от XSS
 app.use(logSuspiciousActivity); // Логирование подозрительной активности
 
-// Rate limiting для всех API запросов, кроме админских операций и load test
-app.use('/api', (req, res, next) => {
-  // Автоматический обход rate limiting для load test пользователей
-  const userId = (req.headers['x-user-id'] as string) || '';
-  if (userId.startsWith('load_test_')) {
-    return next(); // Пропускаем без rate limiting для load test
-  }
-
-  // Можно обойти rate limiting для тестов через заголовок X-Bypass-RateLimit
-  // Express приводит заголовки к нижнему регистру, но проверим оба варианта для надежности
-  const bypassHeader = req.headers['x-bypass-ratelimit'] || req.headers['X-Bypass-RateLimit'];
-  if (bypassHeader === 'true') {
-    return next(); // Пропускаем без rate limiting для тестов
-  }
-
-  // Исключаем админские операции из rate limiting
-  // Админские операции на /api/auction:
-  // - POST /api/auction - создание аукциона
-  // - PATCH /api/auction/:id - обновление аукциона
-  // - POST /api/auction/:id/start - запуск аукциона
-  // - POST /api/auction/:id/end - завершение аукциона
-  if (req.path.startsWith('/auction')) {
-    // POST на корень - создание
-    if (req.method === 'POST' && req.path === '/auction') {
-      return next(); // Пропускаем без rate limiting
-    }
-    // PATCH на /auction/:id - обновление
-    if (req.method === 'PATCH' && /^\/auction\/[^/]+$/.test(req.path)) {
-      return next(); // Пропускаем без rate limiting
-    }
-    // POST на /auction/:id/start или /auction/:id/end - запуск/завершение
-    if (req.method === 'POST' && (req.path.includes('/start') || req.path.includes('/end'))) {
-      return next(); // Пропускаем без rate limiting
-    }
-  }
-  // Для остальных запросов применяем Redis-based rate limiting (10000 в 15 минут)
-  return apiLimiterRedis(req, res, next);
-});
+// Rate limiting для всех API запросов
+// Админские эндпоинты защищены через adminMiddleware и имеют отдельный rate limit
+app.use('/api', apiLimiterRedis);
 
 // Мониторинг производительности (для всех окружений)
 app.use(performanceMiddleware);

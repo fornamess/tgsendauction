@@ -4,8 +4,8 @@ import { TransactionService } from '../services/TransactionService';
 import { TransactionType } from '../models/Transaction.model';
 import { BetService } from '../services/BetService';
 import { AuthRequest } from '../utils/auth';
-import { UnauthorizedError } from '../utils/errors';
-import { depositSchema } from '../utils/validation';
+import { UnauthorizedError, ForbiddenError } from '../utils/errors';
+import { depositSchema, validateObjectId } from '../utils/validation';
 
 export class UserController {
   /**
@@ -86,10 +86,27 @@ export class UserController {
 
   /**
    * Получить пользователя по ID
+   * Пользователь может получить только свои данные, если не админ
    */
   static async getById(req: AuthRequest, res: Response) {
     try {
       const { userId } = req.params;
+      
+      // Валидация ObjectId
+      const userObjectId = validateObjectId(userId, 'userId');
+      
+      // Проверка авторизации: пользователь может получить только свои данные
+      // Админы могут получить данные любого пользователя
+      if (!req.user) {
+        throw new UnauthorizedError();
+      }
+      
+      const isOwnProfile = req.userId?.toString() === userObjectId.toString();
+      const isAdmin = req.user.isAdmin === true;
+      
+      if (!isOwnProfile && !isAdmin) {
+        throw new ForbiddenError('Вы можете просматривать только свой профиль');
+      }
       
       // Таймаут для запроса - 5 секунд
       const timeoutPromise = new Promise((_, reject) => 
@@ -97,7 +114,7 @@ export class UserController {
       );
       
       const user = await Promise.race([
-        User.findById(userId).maxTimeMS(4000).lean().exec(),
+        User.findById(userObjectId).maxTimeMS(4000).lean().exec(),
         timeoutPromise
       ]) as any;
       
@@ -106,6 +123,9 @@ export class UserController {
       }
       res.json(user);
     } catch (error: unknown) {
+      if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
+        throw error;
+      }
       const message = error instanceof Error ? error.message : 'Ошибка получения пользователя';
       return res.status(500).json({ error: message });
     }

@@ -96,8 +96,12 @@ export async function processRoundsJob(): Promise<void> {
   }
 }
 
+const REFUND_BATCH_SIZE = 100; // Размер батча для возвратов
+const BET_BATCH_SIZE = 1000; // Размер батча для чтения ставок
+
 /**
  * Обработать возврат средств после окончания аукциона
+ * Использует batch processing для больших объемов данных
  */
 export async function processRefundsJob(auctionId: string): Promise<void> {
   logger.info(`Обработка возвратов для аукциона`, { auctionId });
@@ -119,29 +123,32 @@ export async function processRefundsJob(auctionId: string): Promise<void> {
   const { TransactionType } = await import('../models/Transaction.model');
   const { Round } = await import('../models/Round.model');
 
-  const rounds = await Round.find({ auctionId }).select('_id').exec();
+  const rounds = await Round.find({ auctionId }).select('_id').lean().exec();
   const roundIds = rounds.map((r) => r._id);
 
+  // Получаем победителей через aggregation
   const winners = await Winner.find({ roundId: { $in: roundIds } })
     .select('userId')
+    .lean()
     .exec();
   const winnerUserIds = new Set(winners.map((w) => w.userId.toString()));
 
-  const allBets = await Bet.find({ roundId: { $in: roundIds } }).exec();
+  // Используем aggregation для суммирования ставок по пользователям
+  // Это более эффективно чем загрузка всех ставок в память
+  const userBetsSummary = await Bet.aggregate([
+    { $match: { roundId: { $in: roundIds } } },
+    {
+      $group: {
+        _id: '$userId',
+        totalAmount: { $sum: '$amount' },
+      },
+    },
+  ]).exec();
 
-  const userBetsMap = new Map<string, number>();
-  for (const bet of allBets) {
-    const userIdStr = bet.userId.toString();
-    const current = userBetsMap.get(userIdStr) || 0;
-    userBetsMap.set(userIdStr, current + bet.amount);
-  }
-
-  const usersToRefund: Array<{ userId: string; totalAmount: number }> = [];
-  for (const [userId, totalAmount] of userBetsMap.entries()) {
-    if (!winnerUserIds.has(userId)) {
-      usersToRefund.push({ userId, totalAmount });
-    }
-  }
+  // Фильтруем не-победителей
+  const usersToRefund = userBetsSummary
+    .filter((u) => !winnerUserIds.has(u._id.toString()))
+    .map((u) => ({ userId: u._id.toString(), totalAmount: u.totalAmount }));
 
   logger.info(`Найдено пользователей для возврата средств`, {
     auctionId,
@@ -150,29 +157,47 @@ export async function processRefundsJob(auctionId: string): Promise<void> {
 
   let successCount = 0;
   let errorCount = 0;
-  for (const { userId, totalAmount } of usersToRefund) {
-    try {
-      await TransactionService.createTransaction(
-        new mongoose.Types.ObjectId(userId),
-        TransactionType.REFUND,
-        totalAmount,
-        undefined,
-        undefined,
-        `Возврат средств после окончания аукциона`,
-        `refund:${auctionId}:${userId}`
-      );
-      successCount++;
-      logger.debug(`Возвращено средств пользователю`, { userId, amount: totalAmount });
-    } catch (error: unknown) {
-      errorCount++;
-      logger.error(
-        `Ошибка возврата средств пользователю ${userId}`,
-        error instanceof Error ? error : new Error(String(error)),
-        {
-          userId,
-          amount: totalAmount,
-        }
-      );
+
+  // Обрабатываем возвраты батчами для контроля нагрузки
+  for (let i = 0; i < usersToRefund.length; i += REFUND_BATCH_SIZE) {
+    const batch = usersToRefund.slice(i, i + REFUND_BATCH_SIZE);
+    
+    // Параллельная обработка батча
+    const results = await Promise.allSettled(
+      batch.map(async ({ userId, totalAmount }) => {
+        await TransactionService.createTransaction(
+          new mongoose.Types.ObjectId(userId),
+          TransactionType.REFUND,
+          totalAmount,
+          undefined,
+          undefined,
+          `Возврат средств после окончания аукциона`,
+          `refund:${auctionId}:${userId}`
+        );
+        return { userId, totalAmount };
+      })
+    );
+
+    // Подсчитываем результаты
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        successCount++;
+        logger.debug(`Возвращено средств пользователю`, { 
+          userId: result.value.userId, 
+          amount: result.value.totalAmount 
+        });
+      } else {
+        errorCount++;
+        logger.error(
+          `Ошибка возврата средств`,
+          result.reason instanceof Error ? result.reason : new Error(String(result.reason))
+        );
+      }
+    }
+
+    // Небольшая пауза между батчами для снижения нагрузки
+    if (i + REFUND_BATCH_SIZE < usersToRefund.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 

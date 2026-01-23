@@ -55,7 +55,7 @@ export class AuctionService {
         async () => {
           const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE })
             .maxTimeMS(5000) // Таймаут запроса к БД - 5 секунд
-            .lean() // Возвращаем plain object для быстроты
+            .lean<IAuction>() // Возвращаем plain object для быстроты
             .exec();
           return auction;
         },
@@ -149,10 +149,14 @@ export class AuctionService {
   }
 
   /**
-   * Получить все аукционы (для админки)
+   * Получить все аукционы (для админки) с лимитом
    */
-  static async getAllAuctions(): Promise<IAuction[]> {
-    return await Auction.find().sort({ createdAt: -1 }).exec();
+  static async getAllAuctions(limit: number = 100): Promise<IAuction[]> {
+    return await Auction.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean<IAuction[]>()
+      .exec();
   }
 
   /**

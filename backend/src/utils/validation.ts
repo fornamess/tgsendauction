@@ -1,5 +1,25 @@
 import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
+import { ValidationError } from './errors';
+
+/**
+ * Проверяет, является ли строка валидным MongoDB ObjectId
+ */
+export function isValidObjectId(id: string): boolean {
+  return mongoose.Types.ObjectId.isValid(id) && 
+    new mongoose.Types.ObjectId(id).toString() === id;
+}
+
+/**
+ * Валидирует ObjectId и выбрасывает ошибку если невалидный
+ */
+export function validateObjectId(id: string, fieldName: string = 'ID'): mongoose.Types.ObjectId {
+  if (!isValidObjectId(id)) {
+    throw new ValidationError(`Невалидный ${fieldName}: ${id}`);
+  }
+  return new mongoose.Types.ObjectId(id);
+}
 
 // Схемы валидации для API запросов
 export const createAuctionSchema = z.object({

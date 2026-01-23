@@ -96,7 +96,7 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
       // Если нет активного или черновика, показываем форму создания
       setAuction(null);
     } catch (err) {
-      console.error('Ошибка получения аукциона:', err);
+      // Ошибка уже залогирована в interceptor
       setAuction(null);
     }
   };
@@ -105,13 +105,6 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
     e.preventDefault();
     setLoading(true);
     try {
-      console.log('Отправка запроса на создание аукциона:', {
-        name: newAuctionName,
-        rewardAmount: newAuctionReward,
-        winnersPerRound: newWinnersPerRound,
-        totalRounds: newTotalRounds,
-        roundDurationMinutes: newRoundDuration,
-      });
       const response = await api.post('/api/auction', {
         name: newAuctionName,
         rewardAmount: newAuctionReward,
@@ -119,7 +112,6 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
         totalRounds: newTotalRounds,
         roundDurationMinutes: newRoundDuration,
       });
-      console.log('Аукцион создан:', response.data);
       setAuction(response.data);
       setNewAuctionName('');
       setNewAuctionReward(1000);
@@ -128,7 +120,6 @@ function AdminPage({ userId: _userId }: AdminPageProps) {
       setNewRoundDuration(60);
       alert('✅ Аукцион успешно создан! Теперь нажмите "Запустить аукцион" чтобы начать.');
     } catch (err: any) {
-      console.error('Ошибка создания аукциона:', err);
       alert(`❌ Ошибка создания аукциона: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoading(false);

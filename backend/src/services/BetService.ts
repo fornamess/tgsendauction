@@ -226,29 +226,60 @@ export class BetService {
 
   /**
    * Получить ставку пользователя в раунде
+   * Не используем populate для избежания N+1 запросов
    */
   static async getUserBet(
     userId: mongoose.Types.ObjectId,
     roundId: mongoose.Types.ObjectId
   ): Promise<IBet | null> {
-    return await Bet.findOne({ userId, roundId }).populate('userId').exec();
+    return await Bet.findOne({ userId, roundId }).lean<IBet>().exec();
   }
 
   /**
-   * Получить топ ставок раунда
+   * Получить топ ставок раунда с данными пользователей (через aggregation)
+   * Использует $lookup вместо populate для избежания N+1 запросов
    */
   static async getTopBets(
     roundId: mongoose.Types.ObjectId,
     limit: number = MAX_TOP_BETS_LIMIT
   ): Promise<IBet[]> {
-    return await Bet.find({ roundId }).sort({ amount: -1 }).limit(limit).populate('userId').exec();
+    // Используем aggregation с $lookup для одного запроса вместо N+1
+    const bets = await Bet.aggregate([
+      { $match: { roundId } },
+      { $sort: { amount: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userInfo',
+        },
+      },
+      {
+        $addFields: {
+          userId: { $arrayElemAt: ['$userInfo', 0] },
+        },
+      },
+      { $project: { userInfo: 0 } },
+    ]).exec();
+    return bets;
   }
 
   /**
-   * Получить все ставки раунда
+   * Получить ставки раунда с лимитом
+   * По умолчанию лимит 1000, для избежания загрузки всех ставок в память
    */
-  static async getRoundBets(roundId: mongoose.Types.ObjectId): Promise<IBet[]> {
-    return await Bet.find({ roundId }).sort({ amount: -1 }).populate('userId').exec();
+  static async getRoundBets(
+    roundId: mongoose.Types.ObjectId,
+    limit: number = 1000
+  ): Promise<IBet[]> {
+    // Используем lean() и лимит для оптимизации
+    return await Bet.find({ roundId })
+      .sort({ amount: -1 })
+      .limit(limit)
+      .lean<IBet[]>()
+      .exec();
   }
 
   /**
@@ -301,20 +332,43 @@ export class BetService {
 
   /**
    * Получить ставки пользователя во всех раундах
+   * Добавлен лимит и lean() для оптимизации
    */
   static async getUserBets(
     userId: mongoose.Types.ObjectId,
-    auctionId?: mongoose.Types.ObjectId
+    auctionId?: mongoose.Types.ObjectId,
+    limit: number = 100
   ): Promise<IBet[]> {
     const query: { userId: mongoose.Types.ObjectId; roundId?: { $in: mongoose.Types.ObjectId[] } } = { userId };
 
     if (auctionId) {
-      // Найти все раунды аукциона
-      const rounds = await Round.find({ auctionId }).select('_id').exec();
+      // Найти все раунды аукциона (только _id для минимизации данных)
+      const rounds = await Round.find({ auctionId }).select('_id').lean().exec();
       const roundIds = rounds.map((r) => r._id);
       query.roundId = { $in: roundIds };
     }
 
-    return await Bet.find(query).sort({ createdAt: -1 }).populate('roundId').exec();
+    // Используем aggregation с $lookup для одного запроса вместо N+1
+    const bets = await Bet.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'rounds',
+          localField: 'roundId',
+          foreignField: '_id',
+          as: 'roundInfo',
+        },
+      },
+      {
+        $addFields: {
+          roundId: { $arrayElemAt: ['$roundInfo', 0] },
+        },
+      },
+      { $project: { roundInfo: 0 } },
+    ]).exec();
+
+    return bets;
   }
 }

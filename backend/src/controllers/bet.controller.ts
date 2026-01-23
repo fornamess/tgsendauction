@@ -1,9 +1,8 @@
 import { Response } from 'express';
-import mongoose from 'mongoose';
 import { BetService } from '../services/BetService';
 import { AuthRequest } from '../utils/auth';
 import { UnauthorizedError, ValidationError } from '../utils/errors';
-import { placeBetSchema } from '../utils/validation';
+import { placeBetSchema, validateObjectId } from '../utils/validation';
 import { recordBetFailure, recordBetSuccess } from '../utils/metrics';
 
 export class BetController {
@@ -28,9 +27,12 @@ export class BetController {
           ? rawIdempotencyKey
           : undefined;
 
+      // Валидация roundId
+      const roundObjectId = validateObjectId(roundId, 'roundId');
+
       const result = await BetService.placeBet(
         req.userId,
-        new mongoose.Types.ObjectId(roundId),
+        roundObjectId,
         amount,
         idempotencyKey
       );
@@ -76,7 +78,10 @@ export class BetController {
         throw new ValidationError('Не указан roundId');
       }
 
-      const bet = await BetService.getUserBet(req.userId, new mongoose.Types.ObjectId(roundId));
+      // Валидация roundId
+      const roundObjectId = validateObjectId(roundId, 'roundId');
+
+      const bet = await BetService.getUserBet(req.userId, roundObjectId);
       if (!bet) {
         return res.status(404).json({ error: 'Ставка не найдена' });
       }

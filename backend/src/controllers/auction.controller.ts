@@ -3,7 +3,7 @@ import { AuctionService } from '../services/AuctionService';
 import { AuthRequest } from '../utils/auth';
 import { ConflictError, NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
-import { createAuctionSchema, updateAuctionSchema } from '../utils/validation';
+import { createAuctionSchema, updateAuctionSchema, validateObjectId } from '../utils/validation';
 
 export class AuctionController {
   /**
@@ -60,9 +60,9 @@ export class AuctionController {
    */
   static async start(req: AuthRequest, res: Response) {
     const { auctionId } = req.params;
-    if (!auctionId) {
-      throw new NotFoundError('auctionId');
-    }
+    
+    // Валидация auctionId
+    validateObjectId(auctionId, 'auctionId');
 
     const auction = await AuctionService.startAuction(auctionId);
     res.json(auction);
@@ -74,6 +74,10 @@ export class AuctionController {
   static async end(req: AuthRequest, res: Response) {
     try {
       const { auctionId } = req.params;
+      
+      // Валидация auctionId
+      validateObjectId(auctionId, 'auctionId');
+      
       const auction = await AuctionService.endAuction(auctionId);
 
       // Обработать возвраты
@@ -92,6 +96,10 @@ export class AuctionController {
    */
   static async getById(req: AuthRequest, res: Response) {
     const { auctionId } = req.params;
+    
+    // Валидация auctionId
+    validateObjectId(auctionId, 'auctionId');
+    
     const auction = await AuctionService.getAuctionById(auctionId);
     if (!auction) {
       throw new NotFoundError('Аукцион', auctionId);
@@ -112,6 +120,10 @@ export class AuctionController {
    */
   static async update(req: AuthRequest, res: Response) {
     const { auctionId } = req.params;
+    
+    // Валидация auctionId
+    validateObjectId(auctionId, 'auctionId');
+    
     const updates = updateAuctionSchema.parse(req.body);
     const auction = await AuctionService.updateAuction(auctionId, updates);
     res.json(auction);

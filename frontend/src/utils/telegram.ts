@@ -163,12 +163,36 @@ export function initTelegramWebApp(): void {
 }
 
 /**
+ * Интерфейс пользователя Telegram
+ */
+export interface TelegramUser {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  language_code?: string;
+  is_premium?: boolean;
+  photo_url?: string;
+}
+
+/**
  * Получает данные пользователя из Telegram
  */
-export function getTelegramUser(): any | null {
+export function getTelegramUser(): TelegramUser | null {
   const tg = getTelegramWebApp();
   if (tg && tg.initDataUnsafe?.user) {
     return tg.initDataUnsafe.user;
+  }
+  return null;
+}
+
+/**
+ * Получает initData для отправки на сервер
+ */
+export function getTelegramInitData(): string | null {
+  const tg = getTelegramWebApp();
+  if (tg && tg.initData) {
+    return tg.initData;
   }
   return null;
 }

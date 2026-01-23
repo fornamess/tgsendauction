@@ -84,7 +84,7 @@ export class RoundService {
             // Найти активный аукцион
             const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE })
               .maxTimeMS(3000)
-              .lean()
+              .lean<IAuction>()
               .exec();
             if (!auction) {
               return null;
@@ -95,7 +95,7 @@ export class RoundService {
           const round = await Round.findOne(query)
             .populate('auctionId')
             .maxTimeMS(5000) // Таймаут запроса
-            .lean() // Быстрее
+            .lean<IRound>() // Быстрее
             .exec();
           return round;
         },
@@ -125,10 +125,28 @@ export class RoundService {
   }
 
   /**
-   * Получить раунд по ID
+   * Получить раунд по ID с данными аукциона (через aggregation)
    */
   static async getRoundById(roundId: string): Promise<IRound | null> {
-    return await Round.findById(roundId).populate('auctionId').exec();
+    const rounds = await Round.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(roundId) } },
+      {
+        $lookup: {
+          from: 'auctions',
+          localField: 'auctionId',
+          foreignField: '_id',
+          as: 'auctionInfo',
+        },
+      },
+      {
+        $addFields: {
+          auctionId: { $arrayElemAt: ['$auctionInfo', 0] },
+        },
+      },
+      { $project: { auctionInfo: 0 } },
+    ]).exec();
+    
+    return rounds[0] || null;
   }
 
   /**

@@ -54,6 +54,8 @@ const IdempotentRequestSchema = new Schema<IIdempotentRequest>(
 
 // Один и тот же ключ для одного типа операции должен быть уникален
 IdempotentRequestSchema.index({ key: 1, type: 1 }, { unique: true });
+// Для cleanup запросов по статусу и времени создания
+IdempotentRequestSchema.index({ status: 1, createdAt: 1 });
 
 export const IdempotentRequest = mongoose.model<IIdempotentRequest>(
   'IdempotentRequest',

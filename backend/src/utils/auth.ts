@@ -3,10 +3,10 @@ import mongoose from 'mongoose';
 import { User, IUser } from '../models/User.model';
 import { validateTelegramInitData } from './telegram';
 import { logger } from './logger';
+import { ForbiddenError } from './errors';
 
 /**
- * Простая система аутентификации через userId в заголовке или query
- * В реальном проекте здесь была бы JWT авторизация
+ * Аутентификация через Telegram Mini App
  */
 export interface AuthRequest extends Request {
   userId?: mongoose.Types.ObjectId;
@@ -15,7 +15,7 @@ export interface AuthRequest extends Request {
 
 /**
  * Middleware для получения/создания пользователя
- * Поддерживает Telegram Mini App (через initData) и обычную авторизацию (через X-User-Id)
+ * Поддерживает только Telegram Mini App авторизацию (через initData)
  */
 export async function authMiddleware(
   req: AuthRequest,
@@ -35,21 +35,9 @@ export async function authMiddleware(
       }
     }
 
-    // Если Telegram авторизация не сработала, пробуем обычную
+    // Если Telegram авторизация не сработала
     if (!userId) {
-      if (req.headers['x-user-id']) {
-        userId = req.headers['x-user-id'] as string;
-      } else if (req.query.userId) {
-        userId = req.query.userId as string;
-      } else if (req.body.userId) {
-        userId = req.body.userId as string;
-      }
-    }
-
-    // Если userId не передан, создаем анонимного пользователя или возвращаем ошибку
-    if (!userId) {
-      // Для некоторых эндпоинтов можно создать пользователя автоматически
-      // Проверяем как полный путь, так и относительный (для mounted routers)
+      // Для публичных GET-эндпоинтов разрешаем доступ без авторизации
       const fullPath = req.baseUrl + req.path;
       const isPublicEndpoint = req.method === 'GET' && (
         req.path.includes('/api/auction') || 
@@ -65,7 +53,7 @@ export async function authMiddleware(
       if (isPublicEndpoint) {
         return next(); // Публичные эндпоинты
       }
-      return res.status(401).json({ error: 'Необходима авторизация. Передайте userId в заголовке X-User-Id или query параметре' });
+      return res.status(401).json({ error: 'Необходима авторизация через Telegram Mini App' });
     }
 
     // Найти или создать пользователя
@@ -117,5 +105,36 @@ export async function authMiddleware(
       method: req.method,
     });
     res.status(500).json({ error: 'Ошибка авторизации' });
+  }
+}
+
+/**
+ * Middleware для проверки админ-прав
+ * Должен использоваться ПОСЛЕ authMiddleware
+ */
+export async function adminMiddleware(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Необходима авторизация' });
+    }
+
+    if (!req.user.isAdmin) {
+      logger.warn('Попытка доступа к админ-эндпоинту без прав', {
+        userId: req.userId?.toString(),
+        username: req.user.username,
+        url: req.originalUrl,
+        method: req.method,
+      });
+      return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора' });
+    }
+
+    next();
+  } catch (error) {
+    logger.error('Ошибка в adminMiddleware', error);
+    res.status(500).json({ error: 'Ошибка проверки прав доступа' });
   }
 }

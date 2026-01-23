@@ -45,18 +45,6 @@ export function createRateLimiter(
   }
 
   return (req: Request, res: Response, next: NextFunction) => {
-    // Автоматический обход rate limiting для load test пользователей
-    const userId = (req.headers['x-user-id'] as string) || '';
-    if (userId.startsWith('load_test_')) {
-      return next(); // Пропускаем rate limiting для load test
-    }
-
-    // Проверка заголовка обхода
-    const bypassHeader = req.headers['x-bypass-ratelimit'] || req.headers['X-Bypass-RateLimit'];
-    if (bypassHeader === 'true') {
-      return next(); // Пропускаем rate limiting для тестов
-    }
-
     const key = req.ip || req.connection.remoteAddress || 'unknown';
     const store = stores[storeName];
     const now = Date.now();

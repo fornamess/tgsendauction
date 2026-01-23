@@ -80,6 +80,10 @@ export class RedisCache {
     }
   }
 
+  /**
+   * Очистка кеша с использованием SCAN вместо KEYS
+   * SCAN не блокирует Redis и работает инкрементально
+   */
   async clear(pattern?: string): Promise<void> {
     try {
       const redis = getRedisClient();
@@ -90,9 +94,25 @@ export class RedisCache {
         ? this.getKey(pattern) 
         : `${this.keyPrefix}*`;
       
-      const keys = await redis.keys(searchPattern);
-      if (keys.length > 0) {
-        await redis.del(...keys);
+      // Используем SCAN вместо KEYS для избежания блокировки Redis
+      let cursor = '0';
+      const keysToDelete: string[] = [];
+      
+      do {
+        // SCAN возвращает [cursor, keys[]]
+        const result = await redis.scan(cursor, 'MATCH', searchPattern, 'COUNT', 100);
+        cursor = result[0];
+        const keys = result[1];
+        keysToDelete.push(...keys);
+      } while (cursor !== '0');
+      
+      // Удаляем ключи батчами по 100
+      if (keysToDelete.length > 0) {
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < keysToDelete.length; i += BATCH_SIZE) {
+          const batch = keysToDelete.slice(i, i + BATCH_SIZE);
+          await redis.del(...batch);
+        }
       }
     } catch (error) {
       logger.error('Ошибка очистки кеша', error, { pattern });

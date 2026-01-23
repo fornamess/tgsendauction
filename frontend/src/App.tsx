@@ -4,32 +4,95 @@ import './App.css';
 import AdminPage from './pages/AdminPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
+import { getTelegramUser, getTelegramWebApp, isTelegramWebApp } from './utils/telegram';
+
+interface TelegramUserInfo {
+  id: number;
+  firstName: string;
+  lastName?: string;
+  username?: string;
+  photoUrl?: string;
+}
 
 function App() {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [showUserSwitcher, setShowUserSwitcher] = useState(false);
+  const [user, setUser] = useState<TelegramUserInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Получить или создать userId
-    let storedUserId = localStorage.getItem('userId');
-    if (!storedUserId) {
-      storedUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('userId', storedUserId);
+    // Проверяем, запущено ли в Telegram Mini App
+    if (isTelegramWebApp()) {
+      const tgUser = getTelegramUser();
+      if (tgUser) {
+        setUser({
+          id: tgUser.id,
+          firstName: tgUser.first_name,
+          lastName: tgUser.last_name,
+          username: tgUser.username,
+          photoUrl: tgUser.photo_url,
+        });
+      } else {
+        setError('Не удалось получить данные пользователя из Telegram');
+      }
+    } else {
+      // Не в Telegram - показываем сообщение
+      // В development режиме разрешаем работу для тестирования
+      if (import.meta.env.DEV) {
+        // Для разработки создаем тестового пользователя
+        setUser({
+          id: 123456789,
+          firstName: 'Test',
+          lastName: 'User',
+          username: 'testuser',
+        });
+      } else {
+        setError('Приложение доступно только через Telegram');
+      }
     }
-    setUserId(storedUserId);
+    setIsLoading(false);
   }, []);
 
-  const handleNewUser = () => {
-    const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem('userId', newUserId);
-    setUserId(newUserId);
-    setShowUserSwitcher(false);
-    window.location.reload(); // Перезагружаем для применения нового userId
-  };
-
-  if (!userId) {
-    return <div>Загрузка...</div>;
+  if (isLoading) {
+    return (
+      <div className="App loading-screen">
+        <div className="loading-spinner"></div>
+        <p>Загрузка...</p>
+      </div>
+    );
   }
+
+  if (error) {
+    return (
+      <div className="App error-screen">
+        <div className="error-content">
+          <h1>Аукцион Робуксов</h1>
+          <p className="error-message">{error}</p>
+          <p className="error-hint">
+            Откройте приложение через бота в Telegram:
+          </p>
+          <a 
+            href="https://t.me/YOUR_BOT_USERNAME" 
+            className="telegram-button"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Открыть в Telegram
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="App error-screen">
+        <p>Ошибка авторизации</p>
+      </div>
+    );
+  }
+
+  const userId = `tg_${user.id}`;
+  const displayName = user.username || `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
 
   return (
     <BrowserRouter>
@@ -41,24 +104,14 @@ function App() {
             <a href="/admin">Админ</a>
           </nav>
           <div className="user-info">
-            <span>Пользователь: {userId}</span>
-            <button
-              onClick={() => setShowUserSwitcher(!showUserSwitcher)}
-              style={{
-                marginLeft: '10px',
-                padding: '4px 8px',
-                fontSize: '12px',
-                cursor: 'pointer',
-              }}
-            >
-              ⚙️
-            </button>
-            {showUserSwitcher && (
-              <div className="user-switcher-menu">
-                <button onClick={handleNewUser}>Создать нового пользователя</button>
-                <p>Для тестирования можно переключаться между пользователями</p>
-              </div>
+            {user.photoUrl && (
+              <img 
+                src={user.photoUrl} 
+                alt="avatar" 
+                className="user-avatar"
+              />
             )}
+            <span>{displayName}</span>
           </div>
         </header>
         <main>

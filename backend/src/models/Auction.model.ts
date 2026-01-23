@@ -68,5 +68,6 @@ const AuctionSchema = new Schema<IAuction>(
 );
 
 AuctionSchema.index({ status: 1 });
+AuctionSchema.index({ status: 1, createdAt: -1 }); // Для getAllAuctions() с сортировкой
 
 export const Auction = mongoose.model<IAuction>('Auction', AuctionSchema);

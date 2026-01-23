@@ -6,6 +6,7 @@ import { RoundService } from '../services/RoundService';
 import { AuthRequest } from '../utils/auth';
 import { ConflictError, NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { validateObjectId } from '../utils/validation';
 
 export class RoundController {
   /**
@@ -79,6 +80,10 @@ export class RoundController {
   static async getById(req: AuthRequest, res: Response) {
     try {
       const { roundId } = req.params;
+      
+      // Валидация roundId
+      validateObjectId(roundId, 'roundId');
+      
       const round = await RoundService.getRoundById(roundId);
       if (!round) {
         throw new NotFoundError('Раунд', roundId);

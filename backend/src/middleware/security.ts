@@ -2,6 +2,47 @@ import { NextFunction, Request, Response } from 'express';
 import { logger } from '../utils/logger';
 
 /**
+ * Опасные паттерны для sanitization
+ */
+const DANGEROUS_PATTERNS = [
+  /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, // script tags
+  /javascript:/gi, // javascript: protocol
+  /data:/gi, // data: protocol  
+  /vbscript:/gi, // vbscript: protocol
+  /on\w+\s*=/gi, // event handlers (onclick, onerror, etc.)
+  /expression\s*\(/gi, // CSS expression()
+  /url\s*\(/gi, // CSS url()
+];
+
+/**
+ * Экранирование HTML-сущностей
+ */
+function escapeHtml(str: string): string {
+  const htmlEntities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
+    '/': '&#x2F;',
+    '`': '&#x60;',
+    '=': '&#x3D;',
+  };
+  return str.replace(/[&<>"'`=/]/g, char => htmlEntities[char] || char);
+}
+
+/**
+ * Удаление опасных паттернов
+ */
+function removeDangerousPatterns(str: string): string {
+  let result = str;
+  for (const pattern of DANGEROUS_PATTERNS) {
+    result = result.replace(pattern, '');
+  }
+  return result;
+}
+
+/**
  * Защита от XSS и инъекций
  */
 export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
@@ -9,8 +50,10 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
     // Рекурсивная очистка строк от потенциально опасных символов
     const sanitize = (obj: unknown): unknown => {
       if (typeof obj === 'string') {
-        // Удаляем потенциально опасные символы
-        return obj.replace(/[<>]/g, '');
+        // Удаляем опасные паттерны и экранируем HTML
+        let sanitized = removeDangerousPatterns(obj);
+        sanitized = escapeHtml(sanitized);
+        return sanitized;
       }
       if (Array.isArray(obj)) {
         return obj.map(sanitize);
@@ -18,7 +61,9 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction) {
       if (obj && typeof obj === 'object') {
         const sanitized: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(obj)) {
-          sanitized[key] = sanitize(value);
+          // Санитизируем также ключи
+          const sanitizedKey = typeof key === 'string' ? escapeHtml(key) : key;
+          sanitized[sanitizedKey] = sanitize(value);
         }
         return sanitized;
       }

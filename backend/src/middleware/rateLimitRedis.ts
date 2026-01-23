@@ -19,31 +19,13 @@ export function createRedisRateLimiter(options: RateLimitOptions) {
     windowMs,
     max,
     message = 'Слишком много запросов, попробуйте позже',
-    keyGenerator = (req) => {
-      // Автоматический обход rate limiting для load test пользователей
-      const userId = (req.headers['x-user-id'] as string) || '';
-      if (userId.startsWith('load_test_')) {
-        return `bypass:${userId}`;
-      }
-      return req.ip || req.connection.remoteAddress || 'unknown';
-    },
+    keyGenerator = (req) => req.ip || req.connection.remoteAddress || 'unknown',
     skipSuccessfulRequests = false,
     skipFailedRequests = false,
   } = options;
 
   return async (req: Request, res: Response, next: NextFunction) => {
     const key = keyGenerator(req);
-    
-    // Пропускаем bypass ключи
-    if (key.startsWith('bypass:')) {
-      return next();
-    }
-
-    // Проверка заголовка обхода
-    const bypassHeader = req.headers['x-bypass-ratelimit'] || req.headers['X-Bypass-RateLimit'];
-    if (bypassHeader === 'true') {
-      return next();
-    }
 
     // Если Redis недоступен, используем fallback на in-memory rate limiting
     if (!isRedisAvailable()) {
@@ -170,4 +152,11 @@ export const depositLimiterRedis = createRedisRateLimiter({
   windowMs: 60 * 1000, // 1 минута
   max: 1000,
   message: 'Слишком много пополнений, подождите немного',
+});
+
+// Rate limiter для админ-эндпоинтов (более высокие лимиты)
+export const adminLimiterRedis = createRedisRateLimiter({
+  windowMs: 60 * 1000, // 1 минута
+  max: 100, // 100 запросов в минуту для админов
+  message: 'Слишком много админ-запросов, подождите немного',
 });

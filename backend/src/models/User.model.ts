@@ -8,6 +8,7 @@ export interface IUser extends Document {
   firstName?: string; // Имя из Telegram
   lastName?: string; // Фамилия из Telegram
   photoUrl?: string; // URL фото профиля
+  isAdmin: boolean; // Флаг админа
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +49,10 @@ const UserSchema = new Schema<IUser>(
     photoUrl: {
       type: String,
       trim: true,
+    },
+    isAdmin: {
+      type: Boolean,
+      default: false,
     },
   },
   {
