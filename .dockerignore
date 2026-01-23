@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+.pnpm-debug.log
+
+# Build outputs
+dist
+build
+*.tsbuildinfo
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+README.md
+*.md
+.cursor
+plans
+
+# Backend specific
+backend/dist
+backend/coverage
+backend/.env
+
+# Frontend specific
+frontend/dist
+frontend/.vite
+frontend/.env
+
+# Bots
+bots/node_modules
+bots/dist

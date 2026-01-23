@@ -14,7 +14,7 @@ interface Auction {
 }
 
 interface AdminPageProps {
-  userId: string;
+  userId: string | null;
 }
 
 interface Round {
@@ -25,7 +25,15 @@ interface Round {
   endTime: string;
 }
 
-function AdminPage({ userId: _userId }: AdminPageProps) {
+function AdminPage({ userId }: AdminPageProps) {
+  if (!userId) {
+    return (
+      <div className="no-access">
+        <h2>Требуется авторизация</h2>
+        <p>Для доступа к админ-панели необходимо войти через Telegram</p>
+      </div>
+    );
+  }
   const [auction, setAuction] = useState<Auction | null>(null);
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
   const [loading, setLoading] = useState(false);

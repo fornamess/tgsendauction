@@ -254,6 +254,25 @@
   }
 }
 
+.auth-required-message {
+  text-align: center;
+  padding: var(--spacing-xl);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  align-items: center;
+}
+
+.auth-required-message p {
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  margin: 0;
+  line-height: 1.6;
+}
+
 /* Mobile Responsive - BetForm */
 @media (max-width: 768px) {
   .bet-form {

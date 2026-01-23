@@ -34,10 +34,18 @@ interface ProfileData {
 }
 
 interface ProfilePageProps {
-  userId: string;
+  userId: string | null;
 }
 
-function ProfilePage({ userId: _userId }: ProfilePageProps) {
+function ProfilePage({ userId }: ProfilePageProps) {
+  if (!userId) {
+    return (
+      <div className="no-access">
+        <h2>Требуется авторизация</h2>
+        <p>Для просмотра профиля необходимо войти через Telegram</p>
+      </div>
+    );
+  }
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState<number>(10000);

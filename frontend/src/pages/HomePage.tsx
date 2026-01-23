@@ -4,7 +4,7 @@ import AuctionDisplay from '../components/AuctionDisplay';
 import './HomePage.css';
 
 interface HomePageProps {
-  userId: string;
+  userId: string | null;
 }
 
 function HomePage({ userId }: HomePageProps) {

@@ -76,8 +76,14 @@
   color: var(--text-secondary);
 }
 
-.user-info span {
+.user-info span.user-name {
   font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .user-info span.user-name {
+    display: none;
+  }
 }
 
 .user-info button {
@@ -288,19 +294,76 @@ main {
   border: 2px solid var(--accent-primary);
 }
 
+/* Mobile Menu Toggle */
+.mobile-menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+  align-items: center;
+}
+
+.mobile-menu-toggle span {
+  width: 24px;
+  height: 3px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: all var(--transition-base);
+}
+
+.mobile-menu-toggle:hover span {
+  background: var(--accent-primary);
+}
+
 /* Mobile Responsive - App */
 @media (max-width: 768px) {
   .App-header {
     padding: var(--spacing-sm) var(--spacing-md);
-  }
-  
-  .App-header nav {
+    flex-wrap: wrap;
     gap: var(--spacing-sm);
   }
   
+  .mobile-menu-toggle {
+    display: flex;
+    order: 1;
+  }
+  
+  .App-header nav {
+    order: 3;
+    width: 100%;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height var(--transition-base);
+    padding: 0;
+  }
+  
+  .App-header nav.mobile-open {
+    max-height: 300px;
+    padding: var(--spacing-sm) 0;
+  }
+  
   .App-header nav a {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    font-size: 14px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 15px;
+    width: 100%;
+    text-align: left;
+    border-radius: var(--radius-sm);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  
+  .user-info {
+    order: 2;
+    margin-left: auto;
   }
   
   main {
@@ -327,16 +390,12 @@ main {
     padding: var(--spacing-xs) var(--spacing-sm);
   }
   
-  .App-header nav {
-    gap: var(--spacing-xs);
-  }
-  
   .App-header nav a {
-    font-size: 13px;
-    padding: var(--spacing-xs);
+    font-size: 14px;
+    padding: var(--spacing-sm);
   }
   
-  .user-info span {
+  .user-info span.user-name {
     display: none;
   }
   
