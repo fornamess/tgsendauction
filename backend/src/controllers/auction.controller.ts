@@ -11,13 +11,23 @@ export class AuctionController {
    */
   static async getCurrent(req: AuthRequest, res: Response) {
     try {
-      const auction = await AuctionService.getCurrentAuction();
+      // Таймаут для запроса - 10 секунд максимум
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      const auction = await Promise.race([
+        AuctionService.getCurrentAuction(),
+        timeoutPromise
+      ]) as any;
+      
       // Возвращаем 200 с null, если аукцион не найден (это нормальная ситуация)
       // Фронтенд обработает это и покажет соответствующее сообщение
-      return res.status(200).json(auction);
+      return res.status(200).json(auction || null);
     } catch (error: unknown) {
       logger.error('Ошибка получения текущего аукциона', error);
-      return res.status(500).json({ error: 'Ошибка получения аукциона' });
+      // Возвращаем null вместо ошибки для graceful degradation
+      return res.status(200).json(null);
     }
   }
 

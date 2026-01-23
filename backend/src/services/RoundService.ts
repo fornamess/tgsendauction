@@ -70,29 +70,41 @@ export class RoundService {
   static async getCurrentRound(auctionId?: string): Promise<IRound | null> {
     const cacheKey = auctionId ? `currentRound:${auctionId}` : 'currentRound:global';
 
-    return await roundCache.getOrSet(
-      cacheKey,
-      async () => {
-        const query: { status: RoundStatus; auctionId?: mongoose.Types.ObjectId } = {
-          status: RoundStatus.ACTIVE,
-        };
+    try {
+      return await roundCache.getOrSet(
+        cacheKey,
+        async () => {
+          const query: { status: RoundStatus; auctionId?: mongoose.Types.ObjectId } = {
+            status: RoundStatus.ACTIVE,
+          };
 
-        if (auctionId) {
-          query.auctionId = new mongoose.Types.ObjectId(auctionId);
-        } else {
-          // Найти активный аукцион
-          const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE });
-          if (!auction) {
-            return null;
+          if (auctionId) {
+            query.auctionId = new mongoose.Types.ObjectId(auctionId);
+          } else {
+            // Найти активный аукцион
+            const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE })
+              .maxTimeMS(3000)
+              .lean()
+              .exec();
+            if (!auction) {
+              return null;
+            }
+            query.auctionId = auction._id;
           }
-          query.auctionId = auction._id;
-        }
 
-        const round = await Round.findOne(query).populate('auctionId').exec();
-        return round;
-      },
-      5000 // 5 секунд TTL
-    );
+          const round = await Round.findOne(query)
+            .populate('auctionId')
+            .maxTimeMS(5000) // Таймаут запроса
+            .lean() // Быстрее
+            .exec();
+          return round;
+        },
+        30000 // 30 секунд TTL для снижения нагрузки
+      );
+    } catch (error) {
+      // Graceful degradation
+      return null;
+    }
   }
 
   /**

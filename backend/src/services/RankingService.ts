@@ -1,5 +1,6 @@
-import mongoose from 'mongoose';
 import { ObjectId } from 'mongodb';
+import mongoose from 'mongoose';
+import { getMongoDB } from '../config/mongodb';
 import { DEFAULT_REWARD_AMOUNT, DEFAULT_WINNERS_PER_ROUND, MAX_TOP_BETS_LIMIT } from '../constants/auction';
 import { Auction } from '../models/Auction.model';
 import { Bet } from '../models/Bet.model';
@@ -8,7 +9,6 @@ import { TransactionType } from '../models/Transaction.model';
 import { IWinner, Winner } from '../models/Winner.model';
 import { NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
-import { getMongoDB } from '../config/mongodb';
 import { topBetsCache } from '../utils/redisCache';
 import { BetService } from './BetService';
 import { RoundService } from './RoundService';
@@ -66,7 +66,7 @@ export class RankingService {
 
     // Создать записи победителей и начислить призы (batch операции)
     const winners: IWinner[] = [];
-    
+
     // Подготовка batch операций для Winner
     const winnerDocs = topBets.map((bet, i) => ({
       userId: bet.userId,
@@ -103,7 +103,7 @@ export class RankingService {
         `prize:${round._id.toString()}:${bet.userId.toString()}:${rank}`
       );
     });
-    
+
     // Выполняем все транзакции параллельно
     await Promise.all(transactionPromises);
 
@@ -157,9 +157,9 @@ export class RankingService {
     roundId: string,
     limit: number = MAX_TOP_BETS_LIMIT
   ): Promise<Array<{ rank: number; bet: ReturnType<typeof Bet.prototype.toObject> }>> {
-    // Кешируем топ-100 ставок на 2 секунды для снижения нагрузки
+    // Кешируем топ-100 ставок на 15 секунд для снижения нагрузки на БД
     const cacheKey = `top100:${roundId}:${limit}`;
-    
+
     const cached = await topBetsCache.get<Array<{ rank: number; bet: ReturnType<typeof Bet.prototype.toObject> }>>(cacheKey);
     if (cached !== null) {
       return cached;
@@ -232,7 +232,10 @@ export class RankingService {
         },
       ];
 
-      const results = await db.collection('bets').aggregate(pipeline).toArray();
+      // Добавляем таймаут для aggregation - 8 секунд
+      const results = await db.collection('bets')
+        .aggregate(pipeline, { maxTimeMS: 8000 })
+        .toArray();
 
       // Преобразуем в нужный формат
       const formattedResults = results.map((item: any, index: number) => ({
@@ -245,14 +248,14 @@ export class RankingService {
         },
       }));
 
-      // Кешируем результат на 2 секунды
-      await topBetsCache.set(cacheKey, formattedResults, 2000);
-      
+      // Кешируем результат на 15 секунд (больше, чем раньше)
+      await topBetsCache.set(cacheKey, formattedResults, 15000);
+
       return formattedResults;
     } catch (error: unknown) {
       // Fallback на старый метод при ошибке
       logger.error('Ошибка aggregation pipeline, используем fallback', error, { roundId });
-      
+
       const bets = await Bet.find({ roundId })
         .select('userId amount createdAt')
         .sort({ amount: -1 })

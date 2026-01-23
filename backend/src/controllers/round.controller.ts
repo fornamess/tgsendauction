@@ -13,37 +13,63 @@ export class RoundController {
    */
   static async getCurrent(req: AuthRequest, res: Response) {
     try {
-      const round = await RoundService.getCurrentRound();
-      if (!round) {
+      // Таймаут для всего запроса - 15 секунд
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 15000)
+      );
+
+      const result = await Promise.race([
+        (async () => {
+          const round = await RoundService.getCurrentRound();
+          if (!round) {
+            return null;
+          }
+
+          const auction = round.auctionId as unknown as IAuction;
+          const winnersPerRound = auction?.winnersPerRound || 100;
+
+          // Параллельные запросы для оптимизации
+          const promises: [Promise<any>, Promise<any> | null, Promise<any> | null] = [
+            RankingService.getCurrentTop100(round._id.toString(), winnersPerRound),
+            null,
+            null
+          ];
+
+          // Получить ставку текущего пользователя, если авторизован
+          if (req.userId) {
+            const { BetService } = await import('../services/BetService');
+            promises[1] = BetService.getUserBet(req.userId, round._id);
+            promises[2] = RankingService.getUserRank(req.userId, round._id.toString());
+          }
+
+          const [top100, userBet, userRank] = await Promise.all(promises);
+
+          return {
+            round,
+            top100,
+            userBet,
+            userRank,
+            winnersPerRound,
+          };
+        })(),
+        timeoutPromise
+      ]);
+
+      if (!result) {
         return res.status(404).json({ error: 'Активный раунд не найден' });
       }
 
-      const auction = round.auctionId as unknown as IAuction;
-      const winnersPerRound = auction?.winnersPerRound || 100;
-    const top100 = await RankingService.getCurrentTop100(
-      round._id.toString(),
-      winnersPerRound
-    );
-
-    // Получить ставку текущего пользователя, если авторизован
-    let userBet = null;
-    let userRank = null;
-    if (req.userId) {
-      const { BetService } = await import('../services/BetService');
-      userBet = await BetService.getUserBet(req.userId, round._id);
-      userRank = await RankingService.getUserRank(req.userId, round._id.toString());
-    }
-
-      res.json({
-        round,
-        top100,
-        userBet,
-        userRank,
-        winnersPerRound,
-      });
+      res.json(result);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Ошибка получения раунда';
-      return res.status(500).json({ error: message });
+      logger.error('Ошибка получения текущего раунда', error);
+      // Graceful degradation
+      return res.status(200).json({
+        round: null,
+        top100: [],
+        userBet: null,
+        userRank: null,
+        winnersPerRound: 100,
+      });
     }
   }
 

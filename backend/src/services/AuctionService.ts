@@ -49,14 +49,23 @@ export class AuctionService {
   static async getCurrentAuction(): Promise<IAuction | null> {
     const cacheKey = 'currentAuction';
     
-    return await auctionCache.getOrSet(
-      cacheKey,
-      async () => {
-        const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE }).exec();
-        return auction;
-      },
-      5000 // 5 секунд TTL
-    );
+    try {
+      return await auctionCache.getOrSet(
+        cacheKey,
+        async () => {
+          const auction = await Auction.findOne({ status: AuctionStatus.ACTIVE })
+            .maxTimeMS(5000) // Таймаут запроса к БД - 5 секунд
+            .lean() // Возвращаем plain object для быстроты
+            .exec();
+          return auction;
+        },
+        30000 // 30 секунд TTL - уменьшаем нагрузку на БД
+      );
+    } catch (error) {
+      logger.error('Ошибка получения текущего аукциона из БД', error);
+      // Graceful degradation - возвращаем null
+      return null;
+    }
   }
 
   /**

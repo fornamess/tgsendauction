@@ -17,17 +17,29 @@ export class UserController {
         throw new UnauthorizedError();
       }
 
-      // Получить историю транзакций
-      const transactions = await TransactionService.getUserTransactions(req.userId, 20);
+      // Таймаут для запроса - 10 секунд
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
 
-      // Получить ставки пользователя
-      const bets = await BetService.getUserBets(req.userId);
+      const result = await Promise.race([
+        (async () => {
+          // Параллельные запросы для оптимизации
+          const [transactions, bets] = await Promise.all([
+            TransactionService.getUserTransactions(req.userId!, 20),
+            BetService.getUserBets(req.userId!)
+          ]);
 
-      res.json({
-        user: req.user,
-        transactions,
-        bets: bets.slice(0, 20), // Последние 20 ставок
-      });
+          return {
+            user: req.user,
+            transactions,
+            bets: bets.slice(0, 20), // Последние 20 ставок
+          };
+        })(),
+        timeoutPromise
+      ]);
+
+      res.json(result);
     } catch (error: unknown) {
       if (error instanceof UnauthorizedError) {
         throw error;
@@ -78,7 +90,17 @@ export class UserController {
   static async getById(req: AuthRequest, res: Response) {
     try {
       const { userId } = req.params;
-      const user = await User.findById(userId);
+      
+      // Таймаут для запроса - 5 секунд
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 5000)
+      );
+      
+      const user = await Promise.race([
+        User.findById(userId).maxTimeMS(4000).lean().exec(),
+        timeoutPromise
+      ]) as any;
+      
       if (!user) {
         return res.status(404).json({ error: 'Пользователь не найден' });
       }

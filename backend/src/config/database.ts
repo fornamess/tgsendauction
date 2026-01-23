@@ -5,11 +5,14 @@ export const connectDatabase = async (): Promise<void> => {
   try {
     const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/auction_db';
     await mongoose.connect(mongoUri, {
-      maxPoolSize: 50, // Увеличиваем пул соединений для высокой нагрузки
-      minPoolSize: 10, // Минимальный пул соединений
-      serverSelectionTimeoutMS: 5000, // Таймаут выбора сервера
-      socketTimeoutMS: 45000, // Таймаут сокета
-      connectTimeoutMS: 10000, // Таймаут подключения
+      maxPoolSize: 100, // Увеличиваем пул для высокой нагрузки
+      minPoolSize: 20, // Больше постоянных соединений
+      serverSelectionTimeoutMS: 10000, // Больше времени на выбор сервера
+      socketTimeoutMS: 120000, // 2 минуты на сокет
+      connectTimeoutMS: 30000, // 30 секунд на подключение
+      heartbeatFrequencyMS: 10000, // Проверка соединения каждые 10 секунд
+      retryWrites: true, // Автоматический retry для записи
+      retryReads: true, // Автоматический retry для чтения
     });
     logger.info('✅ MongoDB подключена', { mongoUri });
   } catch (error) {

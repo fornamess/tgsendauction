@@ -242,12 +242,70 @@ const startServer = async () => {
       });
     });
 
+    // Настройка keepalive и таймаутов для стабильности
+    server.keepAliveTimeout = 65000; // 65 секунд (больше чем nginx proxy_read_timeout)
+    server.headersTimeout = 66000; // 66 секунд (больше чем keepAliveTimeout)
+    server.requestTimeout = 70000; // 70 секунд (максимальное время на запрос)
+    server.maxHeadersCount = 100; // Максимум заголовков
+    
+    // Увеличиваем лимит соединений
+    server.maxConnections = 10000;
+
     server.on('error', (error: NodeJS.ErrnoException) => {
       logger.error('❌ Ошибка сервера', error, { port: PORT });
       if (error.code === 'EADDRINUSE') {
         logger.error('Порт уже занят', undefined, { port: PORT });
       }
       process.exit(1);
+    });
+
+    // Graceful shutdown
+    const gracefulShutdown = async (signal: string) => {
+      logger.info(`${signal} получен, начинается graceful shutdown...`);
+      
+      // Останавливаем принятие новых соединений
+      server.close(() => {
+        logger.info('HTTP сервер закрыт');
+      });
+
+      // Даем 10 секунд на завершение текущих запросов
+      setTimeout(() => {
+        logger.error('Принудительное завершение процесса (timeout)');
+        process.exit(1);
+      }, 10000);
+
+      try {
+        // Закрываем соединение с БД
+        const { disconnectDatabase } = await import('./config/database');
+        await disconnectDatabase();
+        logger.info('База данных отключена');
+        
+        // Закрываем Redis
+        const { disconnectRedis } = await import('./config/redis');
+        await disconnectRedis();
+        logger.info('Redis отключен');
+        
+        process.exit(0);
+      } catch (error) {
+        logger.error('Ошибка при graceful shutdown', error);
+        process.exit(1);
+      }
+    };
+
+    // Обработка сигналов завершения
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+    // Обработка необработанных ошибок
+    process.on('unhandledRejection', (reason, promise) => {
+      logger.error('Unhandled Rejection', reason instanceof Error ? reason : new Error(String(reason)), {
+        promise: String(promise)
+      });
+    });
+
+    process.on('uncaughtException', (error) => {
+      logger.error('Uncaught Exception', error);
+      gracefulShutdown('UNCAUGHT_EXCEPTION');
     });
 
     // Запуск планировщика раундов
