@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
+import AuthButton from '../components/AuthButton';
 import './AdminPage.css';
 
 interface Auction {
@@ -31,6 +32,7 @@ function AdminPage({ userId }: AdminPageProps) {
       <div className="no-access">
         <h2>Требуется авторизация</h2>
         <p>Для доступа к админ-панели необходимо войти через Telegram</p>
+        <AuthButton />
       </div>
     );
   }

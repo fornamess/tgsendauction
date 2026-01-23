@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
+import AuthButton from '../components/AuthButton';
 import './ProfilePage.css';
 
 interface User {
@@ -43,6 +44,7 @@ function ProfilePage({ userId }: ProfilePageProps) {
       <div className="no-access">
         <h2>Требуется авторизация</h2>
         <p>Для просмотра профиля необходимо войти через Telegram</p>
+        <AuthButton />
       </div>
     );
   }
